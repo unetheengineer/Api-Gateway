@@ -6,6 +6,7 @@ import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { RateLimitHeadersInterceptor } from './common/interceptors/rate-limit-headers.interceptor';
 import compression = require('compression');
 import { VersioningType } from '@nestjs/common';
 
@@ -43,8 +44,8 @@ async function bootstrap() {
   );
 
   // CORS Configuration
-  const corsOrigins = process.env.CORS_ORIGIN 
-    ? process.env.CORS_ORIGIN.split(',') 
+  const corsOrigins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',')
     : ['http://localhost:3000']; // Default: React/Vite dev servers
 
   app.enableCors({
@@ -63,7 +64,7 @@ async function bootstrap() {
       const isAllowed = corsOrigins.some((allowedOrigin) => {
         if (allowedOrigin.includes('*')) {
           const regex = new RegExp(
-            '^' + allowedOrigin.replace(/\*/g, '.*') + '$'
+            '^' + allowedOrigin.replace(/\*/g, '.*') + '$',
           );
           return regex.test(origin);
         }
@@ -85,11 +86,14 @@ async function bootstrap() {
       'Accept',
       'Origin',
     ],
+    // ✅ CRITICAL: Expose these headers to frontend
     exposedHeaders: [
+      'X-Request-ID',
       'X-RateLimit-Limit',
       'X-RateLimit-Remaining',
       'X-RateLimit-Reset',
-      'X-Request-ID', // Request ID'yi expose et
+      'X-RateLimit-Reset-Ms',
+      'Retry-After',
     ],
     credentials: true, // Cookie/Session desteği
     maxAge: 3600, // Preflight cache süresi (saniye)
@@ -98,19 +102,20 @@ async function bootstrap() {
   // Swagger Documentation
   const config = new DocumentBuilder()
     .setTitle('API Gateway')
-    .setDescription('API Gateway for Microservices Architecture\n\n' +
-      '## Features\n' +
-      '- JWT Authentication\n' +
-      '- OAuth (Google & GitHub)\n' +
-      '- Rate Limiting\n' +
-      '- Request Validation\n' +
-      '- Response Compression\n' +
-      '- Request ID Tracking\n' +
-      '- Health Checks\n' +
-      '- Centralized Error Handling\n\n' +
-      '## Base URL\n' +
-      `- Development: http://localhost:${process.env.PORT || 3000}\n` +
-      '- Production: https://api.yourdomain.com'
+    .setDescription(
+      'API Gateway for Microservices Architecture\n\n' +
+        '## Features\n' +
+        '- JWT Authentication\n' +
+        '- OAuth (Google & GitHub)\n' +
+        '- Rate Limiting\n' +
+        '- Request Validation\n' +
+        '- Response Compression\n' +
+        '- Request ID Tracking\n' +
+        '- Health Checks\n' +
+        '- Centralized Error Handling\n\n' +
+        '## Base URL\n' +
+        `- Development: http://localhost:${process.env.PORT || 3000}\n` +
+        '- Production: https://api.yourdomain.com',
     )
     .setVersion('1.0.0')
     .addBearerAuth({
@@ -127,7 +132,7 @@ async function bootstrap() {
     .addServer(`http://localhost:${process.env.PORT || 3000}`, 'Development')
     .addServer('https://api.yourdomain.com', 'Production')
     .build();
-  
+
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document, {
     customSiteTitle: 'API Gateway Documentation',
@@ -148,6 +153,7 @@ async function bootstrap() {
   app.useGlobalInterceptors(
     new LoggingInterceptor(),
     new TransformInterceptor(),
+    new RateLimitHeadersInterceptor(),
   );
 
   const port = process.env.PORT || 3000;
@@ -167,7 +173,7 @@ ${process.env.THROTTLE_ENABLED === 'true' ? `║     └─ ${process.env.THROTT
 ║  🔖 Request ID: ENABLED (X-Request-ID header)${' '.repeat(13)}║
 ║  ❤️  Health Check: http://localhost:${port}/health${' '.repeat(20)}║
 ║  🌐 CORS Origins:${' '.repeat(40)}║
-${corsOrigins.map(origin => `║     • ${origin.padEnd(52)}║`).join('\n')}
+${corsOrigins.map((origin) => `║     • ${origin.padEnd(52)}║`).join('\n')}
 ╚═══════════════════════════════════════════════════════════╝
   `);
 }

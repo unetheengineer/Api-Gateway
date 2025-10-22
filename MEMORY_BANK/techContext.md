@@ -137,15 +137,82 @@ npm run format        # Prettier ile format
   - testEnvironment: node
   - Coverage directory: ../coverage
 
-## Environment Variables (Örnek)
+### Yeni Eklenen Dosyalar (Latest)
+
+#### Frontend Integration
+- **FRONTEND_SETUP_GUIDE.md**: Comprehensive frontend setup guide
+- **README_OAUTH.md**: OAuth implementation guide
+- **FRONTEND_INTEGRATION_REPORT.md**: System readiness report
+
+#### Interceptors
+- **src/common/interceptors/rate-limit-headers.interceptor.ts**: Rate limit headers
+
+#### Decorators
+- **src/common/decorators/api-common-responses.decorator.ts**: Common API responses
+
+#### DTOs
+- **src/modules/auth/dto/oauth-callback.dto.ts**: OAuth callback DTO
+
+## Development & Build Scripts
+```bash
+"scripts": {
+  "build": "nest build",
+  "start": "nest start",
+  "start:dev": "nest start --watch",
+  "start:debug": "nest start --debug --watch",
+  "start:prod": "node dist/main",
+  
+  # Testing
+  "test": "jest",
+  "test:watch": "jest --watch",
+  "test:cov": "jest --coverage",
+  "test:e2e": "jest --config ./test/jest-e2e.json",
+  
+  # Code Quality
+  "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
+  "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+  
+  # RabbitMQ Management (NEW)
+  "rabbitmq:start": "docker run -d --name lifeplaneer-rabbitmq -p 5672:5672 -p 15672:15672 -e RABBITMQ_DEFAULT_USER=admin -e RABBITMQ_DEFAULT_PASS=admin123 rabbitmq:3-management",
+  "rabbitmq:stop": "docker stop lifeplaneer-rabbitmq && docker rm lifeplaneer-rabbitmq",
+  "rabbitmq:logs": "docker logs -f lifeplaneer-rabbitmq",
+  "setup:rabbitmq": "ts-node scripts/setup-rabbitmq-topology.ts"
+}
 ```
+
+## Environment Variables (Complete List)
+```env
+# Application
 NODE_ENV=development
 PORT=3000
+
+# Core Service
 CORE_SERVICE_URL=http://localhost:3001
+
+# JWT
+JWT_SECRET=your-secret-key
+JWT_EXPIRATION=3600
+
+# CORS
 CORS_ORIGIN=http://localhost:3000,http://localhost:5173
+
+# Rate Limiting
 THROTTLE_ENABLED=true
 THROTTLE_LIMIT=100
 THROTTLE_TTL=60
-JWT_SECRET=your-secret-key
-JWT_EXPIRATION=3600
+
+# RabbitMQ (NEW)
+RABBITMQ_URL=amqp://localhost:5672
+USE_RABBITMQ=true
+RABBITMQ_PREFETCH=10
+RABBITMQ_RETRY_ATTEMPTS=3
+RABBITMQ_RETRY_DELAY=1000
+RABBITMQ_HEARTBEAT=30
+
+# OAuth (Core Service'de kullanılacak)
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GITHUB_CLIENT_ID=your-github-client-id
+GITHUB_CLIENT_SECRET=your-github-client-secret
+OAUTH_CALLBACK_URL=http://localhost:5173/auth/callback
 ```

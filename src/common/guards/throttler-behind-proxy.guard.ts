@@ -15,8 +15,8 @@ export class ThrottlerBehindProxyGuard extends ThrottlerGuard {
     // Proxy arkasındaysak X-Forwarded-For'dan al
     const forwardedFor = req.headers['x-forwarded-for'];
     if (forwardedFor) {
-      const ips = Array.isArray(forwardedFor) 
-        ? forwardedFor[0] 
+      const ips = Array.isArray(forwardedFor)
+        ? forwardedFor[0]
         : forwardedFor.split(',')[0];
       return `ip:${ips.trim()}`;
     }

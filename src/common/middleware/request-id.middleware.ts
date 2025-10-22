@@ -18,19 +18,35 @@ export class RequestIdMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction) {
     // Check if request already has an ID (from client or load balancer)
     const existingRequestId = req.headers['x-request-id'] as string;
-    
+
     // Generate new ID if not exists
     const requestId = existingRequestId || uuidv4();
-    
+
     // Attach to request object
     req.id = requestId;
-    
+
     // Set response header
     res.setHeader('X-Request-ID', requestId);
-    
-    // Optional: Log request ID for debugging
-    // this.logger.debug(`Request ID: ${requestId} - ${req.method} ${req.originalUrl}`);
-    
+
+    // ✅ ADD: Expose Request ID and rate limit headers for CORS
+    const currentExposed = res.getHeader('Access-Control-Expose-Headers') as string;
+    const exposedHeaders = [
+      'X-Request-ID',
+      'X-RateLimit-Limit',
+      'X-RateLimit-Remaining',
+      'X-RateLimit-Reset',
+      'X-RateLimit-Reset-Ms',
+      'Retry-After',
+    ];
+
+    if (currentExposed) {
+      const existingHeaders = currentExposed.split(',').map(h => h.trim());
+      const allHeaders = Array.from(new Set([...existingHeaders, ...exposedHeaders]));
+      res.setHeader('Access-Control-Expose-Headers', allHeaders.join(', '));
+    } else {
+      res.setHeader('Access-Control-Expose-Headers', exposedHeaders.join(', '));
+    }
+
     next();
   }
 }

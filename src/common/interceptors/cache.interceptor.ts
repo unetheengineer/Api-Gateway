@@ -15,9 +15,7 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 export class HttpCacheInterceptor implements NestInterceptor {
   private readonly logger = new Logger(HttpCacheInterceptor.name);
 
-  constructor(
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
-  ) {}
+  constructor(@Inject(CACHE_MANAGER) private readonly cacheManager: Cache) {}
 
   async intercept(
     context: ExecutionContext,

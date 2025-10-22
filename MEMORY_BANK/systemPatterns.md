@@ -246,6 +246,149 @@ AppModule
 11. Response to Client (200 + JWT Token)
 ```
 
+## OAuth Authentication Flow
+
+### OAuth Architecture
+```
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│  Frontend   │    │API Gateway  │    │Core Service │    │OAuth Provider│
+└──────┬──────┘    └──────┬──────┘    └──────┬──────┘    └──────┬──────┘
+       │                  │                   │                   │
+       │ GET /auth/google │                   │                   │
+       ├─────────────────>│                   │                   │
+       │                  │ Forward request   │                   │
+       │                  ├──────────────────>│                   │
+       │                  │                   │ Generate OAuth URL│
+       │                  │ OAuth URL         │<──────────────────│
+       │ Redirect to URL  │<──────────────────│                   │
+       │<─────────────────┤                   │                   │
+       │                  │                   │                   │
+       │ User authenticates                   │                   │
+       ├──────────────────────────────────────────────────────────>
+       │                  │                   │                   │
+       │ Callback with code                   │                   │
+       │<─────────────────────────────────────────────────────────┤
+       │                  │                   │                   │
+       │ GET /auth/google/callback?code=xxx   │                   │
+       ├─────────────────>│                   │                   │
+       │                  │ Forward code      │                   │
+       │                  ├──────────────────>│                   │
+       │                  │                   │ Exchange code     │
+       │                  │                   ├──────────────────>
+       │                  │                   │ User profile      │
+       │                  │                   │<──────────────────│
+       │                  │                   │ Create/Login user │
+       │                  │                   │ Generate JWT      │
+       │                  │ JWT tokens        │                   │
+       │ Tokens + User    │<──────────────────│                   │
+       │<─────────────────┤                   │                   │
+       │                  │                   │                   │
+       │                  │ Publish Events    │                   │
+       │                  │ (LOGIN_SUCCESS,   │                   │
+       │                  │  USER_REGISTERED) │                   │
+       │                  │                   │                   │
+```
+
+### OAuth Responsibilities
+
+**API Gateway:**
+- Provide OAuth URLs (`GET /auth/google`, `GET /auth/github`)
+- Handle OAuth callbacks (`GET /auth/google/callback`)
+- Forward requests to Core Service
+- Publish authentication events
+- Trigger background jobs (welcome email)
+- Error handling and user-friendly messages
+
+**Core Service:**
+- OAuth provider integration (Google/GitHub API)
+- Token exchange (code → access token)
+- Fetch user profile
+- User creation/update (Database)
+- JWT token generation
+- State validation (CSRF protection)
+
+### OAuth Event Flow
+```
+OAuth Success → Event: AUTH_LOGIN_SUCCESS
+             → Event: USER_REGISTERED (if new user)
+             → Job: EMAIL_WELCOME (background)
+
+OAuth Error → Event: AUTH_LOGIN_FAILED
+```
+
+## Error Handling Pattern
+
+### Standardized Error Response
+```json
+{
+  "statusCode": 400,
+  "message": ["Error message"],
+  "error": "ErrorType",
+  "path": "/v1/auth/login",
+  "method": "POST",
+  "timestamp": "2024-01-15T10:00:00.000Z",
+  "requestId": "uuid",
+  "errors": [
+    {
+      "field": "email",
+      "message": "Validation message"
+    }
+  ]
+}
+```
+
+### Error Processing Flow
+```
+Request → Validation → Business Logic → Response
+  ↓           ↓              ↓              ↓
+Error     Error          Error          Success
+  ↓           ↓              ↓              ↓
+  └───────────┴──────────────┴──────────────→ GlobalExceptionFilter
+                                               ↓
+                                     Log + Format + Send
+                                               ↓
+                                     Frontend receives:
+                                     {statusCode, message, error, ...}
+```
+
+### Error Types
+
+- **400 Bad Request**: Validation errors, malformed requests
+- **401 Unauthorized**: Invalid/expired JWT token
+- **403 Forbidden**: Valid token but insufficient permissions
+- **429 Too Many Requests**: Rate limit exceeded
+- **500 Internal Server Error**: Server-side errors
+- **503 Service Unavailable**: Core Service down
+
+## Rate Limiting Pattern
+
+### Architecture
+```
+Request → ThrottlerGuard → RateLimitInterceptor → Controller
+              ↓                     ↓
+         Check limit          Add headers
+              ↓                     ↓
+         Allow/Deny          X-RateLimit-*
+
+Response Headers
+All Responses:
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 95
+X-RateLimit-Reset: 1705315200
+429 Response (Rate Limited):
+X-RateLimit-Remaining: 0
+Retry-After: 60
+
+Frontend Handling
+
+const response = await fetch('/v1/auth/login');
+
+if (response.status === 429) {
+  const retryAfter = response.headers.get('Retry-After');
+  // Wait before retrying
+}
+```
+
 ## Key Architectural Decisions
 
 - **Proxy Pattern**: Gateway tüm istekleri backend servislere proxy'ler
