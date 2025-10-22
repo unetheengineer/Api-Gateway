@@ -91,7 +91,11 @@ export class CircuitBreakerService implements OnModuleInit {
 
     return {
       name,
-      state: breaker.opened ? 'OPEN' : breaker.halfOpen ? 'HALF_OPEN' : 'CLOSED',
+      state: breaker.opened
+        ? 'OPEN'
+        : breaker.halfOpen
+          ? 'HALF_OPEN'
+          : 'CLOSED',
       stats: breaker.stats,
       config: config || {}, // ✅ Saklanan config'i kullan
     };

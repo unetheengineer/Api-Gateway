@@ -1,4 +1,4 @@
-import { 
+import {
   Controller,
   Get,
   Put,
@@ -7,13 +7,20 @@ import {
   UseGuards,
   Headers,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { ApiCommonResponses } from '../../common/decorators/api-common-responses.decorator';
 
 @ApiTags('Users')
 @ApiBearerAuth()
+@ApiCommonResponses()
 @UseGuards(JwtAuthGuard)
 @Controller('users')
 export class UsersController {
@@ -29,15 +36,20 @@ export class UsersController {
   @Get(':id')
   @ApiOperation({ summary: 'Get user by id' })
   @ApiResponse({ status: 200 })
-  async getById(@Param('id') id: string, @Headers('authorization') authorization: string) {
+  async getById(
+    @Param('id') id: string,
+    @Headers('authorization') authorization: string,
+  ) {
     return this.usersService.getById(id, authorization);
   }
 
   @Put('me')
   @ApiOperation({ summary: 'Update current user profile' })
   @ApiResponse({ status: 200 })
-  async updateMe(@Body() dto: UpdateUserDto, @Headers('authorization') authorization: string) {
+  async updateMe(
+    @Body() dto: UpdateUserDto,
+    @Headers('authorization') authorization: string,
+  ) {
     return this.usersService.updateMe(dto, authorization);
   }
 }
-
