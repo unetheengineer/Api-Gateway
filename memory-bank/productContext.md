@@ -119,21 +119,22 @@ An API Gateway that:
 
 ### Module Architecture (Current + Planned)
 
-#### Current Modules
+#### Current Modules (All MOCK Implementations)
 
-**Auth Module**
+**Auth Module (Mock → Future Microservice)**
 - User registration and login
 - JWT token generation
 - Token refresh
 - OAuth placeholder
-- Mock user storage
+- Mock user storage (in-memory)
 
-**Todos Module**
+**Todos Module (Mock → Future Microservice)**
 - CRUD operations
 - Soft delete support
 - User-specific data
 - Pagination and filtering
 - Status management
+- Mock todo storage (in-memory)
 
 **Health Module**
 - Service health checks
@@ -147,17 +148,20 @@ An API Gateway that:
 - RPC communication patterns
 - Retry mechanisms
 
-#### Planned Modules
+#### Planned Modules (All MOCK Implementations → Future Microservices)
 
-**Pomodoro Module**
+**⚠️ CRITICAL**: All modules below will start as **MOCK implementations** with **in-memory storage**, then migrate to dedicated microservices in Phase 3.
+
+**Pomodoro Module (Mock → Future Microservice)**
 - Session management (25min work, 5min break, 15min long break)
 - Timer state tracking (running, paused, completed)
 - Session history and statistics
 - Configurable timer durations
 - Integration with Todos (link todo to pomodoro session)
 - Daily/weekly productivity metrics
+- **Implementation**: In-memory mock storage, no database
 
-**Calendar Module**
+**Calendar Module (Mock → Future Microservice)**
 - Event CRUD operations
 - Date/time scheduling
 - Event categories (work, personal, meeting, etc.)
@@ -166,8 +170,9 @@ An API Gateway that:
 - Integration with Todos (convert todo to calendar event)
 - Integration with Pomodoro (schedule pomodoro sessions)
 - Month/week/day views
+- **Implementation**: In-memory mock storage, no database
 
-**Habits Module**
+**Habits Module (Mock → Future Microservice)**
 - Daily habit tracking
 - Habit creation with frequency (daily, weekly, custom)
 - Completion marking
@@ -176,6 +181,7 @@ An API Gateway that:
 - Progress statistics
 - Habit reminders
 - Integration with Calendar (schedule habit time)
+- **Implementation**: In-memory mock storage, no database
 
 ## User Experience Goals
 

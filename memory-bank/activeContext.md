@@ -78,8 +78,12 @@ The following files have been modified or added recently:
 
 ### Immediate Tasks (Priority Order)
 
-#### 1. Pomodoro Module Implementation
-**Goal**: Implement timer management for Pomodoro technique
+**⚠️ CRITICAL IMPLEMENTATION NOTE**:
+All new modules (Pomodoro, Calendar, Habits) will be implemented as **MOCK services** with **in-memory storage**, following the exact same pattern as Auth and Todos modules. Each module will eventually be replaced with a dedicated microservice in Phase 3.
+
+#### 1. Pomodoro Module Implementation (MOCK)
+**Goal**: Implement timer management for Pomodoro technique as MOCK service
+**Implementation**: In-memory storage, no database, mock data
 
 **Tasks**:
 - [ ] Create module structure: `src/modules/pomodoro/`
@@ -108,8 +112,9 @@ The following files have been modified or added recently:
 - [ ] Add Swagger documentation
 - [ ] Consider WebSocket support for real-time timer updates (future enhancement)
 
-#### 2. Calendar Module Implementation
-**Goal**: Implement event management and scheduling
+#### 2. Calendar Module Implementation (MOCK)
+**Goal**: Implement event management and scheduling as MOCK service
+**Implementation**: In-memory storage, no database, mock data
 
 **Tasks**:
 - [ ] Create module structure: `src/modules/calendar/`
@@ -138,8 +143,9 @@ The following files have been modified or added recently:
 - [ ] Add Swagger documentation
 - [ ] Consider integration with Todos (convert todo to event)
 
-#### 3. Habits Module Implementation
-**Goal**: Implement habit tracking and streak management
+#### 3. Habits Module Implementation (MOCK)
+**Goal**: Implement habit tracking and streak management as MOCK service
+**Implementation**: In-memory storage, no database, mock data
 
 **Tasks**:
 - [ ] Create module structure: `src/modules/habits/`

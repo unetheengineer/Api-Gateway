@@ -203,10 +203,13 @@
 
 ### 🔄 Productivity Modules (Planned)
 
-#### Pomodoro Module
+**⚠️ IMPLEMENTATION APPROACH**: All modules below will be implemented as **MOCK services** with **in-memory storage**, following the exact same pattern as Auth and Todos modules. No database required. Each module will eventually be replaced with a dedicated microservice in Phase 3.
+
+#### Pomodoro Module (MOCK Implementation)
 **Status**: Not started
 **Priority**: High
 **Estimated Effort**: 2-3 days
+**Implementation**: In-memory storage with mock data (no database)
 
 **Required Components**:
 - [ ] Module setup (pomodoro.module.ts)
@@ -246,10 +249,11 @@
 - [ ] Background job for auto-completing sessions
 - [ ] Notifications on session completion
 
-#### Calendar Module
+#### Calendar Module (MOCK Implementation)
 **Status**: Not started
 **Priority**: High
 **Estimated Effort**: 3-4 days
+**Implementation**: In-memory storage with mock data (no database)
 
 **Required Components**:
 - [ ] Module setup (calendar.module.ts)
@@ -296,10 +300,11 @@
 - [ ] Shared calendars
 - [ ] Event invitations
 
-#### Habits Module
+#### Habits Module (MOCK Implementation)
 **Status**: Not started
 **Priority**: High
 **Estimated Effort**: 2-3 days
+**Implementation**: In-memory storage with mock data (no database)
 
 **Required Components**:
 - [ ] Module setup (habits.module.ts)

@@ -146,13 +146,16 @@ export class CreateTodoDto {
 - Swagger documentation generation
 
 ### 6. Mock-to-Microservice Pattern
+**⚠️ CRITICAL PATTERN**: ALL modules (Auth, Todos, Pomodoro, Calendar, Habits) follow this pattern
+
 **Current Implementation** (Mock):
 ```typescript
 // In service
 private mockTodos: Todo[] = [/* ... */];
 
 async create(dto: CreateTodoDto, userId: string): Promise<Todo> {
-  // Mock implementation with in-memory storage
+  // 🔧 MOCK: In-memory storage
+  // TODO: Replace with microservice call
   const newTodo = { id: uuid(), ...dto, userId };
   this.mockTodos.push(newTodo);
   return newTodo;
@@ -180,6 +183,16 @@ async create(dto: CreateTodoDto, userId: string): Promise<Todo> {
 ```
 
 **Key Principle**: Keep method signatures identical for seamless migration
+
+**Implementation Notes**:
+- ✅ All modules start as MOCK (in-memory storage)
+- ✅ Same method signatures for easy migration
+- ✅ Mark with `🔧 MOCK:` comments in code
+- ✅ Add `TODO: Replace with microservice call` comments
+- ✅ Controllers remain unchanged during migration
+- ✅ Only service implementation changes
+- ✅ Frontend integration works immediately with mocks
+- ✅ No database setup needed for development
 
 ### 7. Exception Filter Pattern
 **Location**: `src/common/filters/http-exception.filter.ts`

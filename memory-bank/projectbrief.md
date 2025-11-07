@@ -27,20 +27,28 @@ The project is in **active development** phase with core infrastructure complete
 ## Planned Features (Roadmap)
 The following modules are planned for future implementation:
 
-### 1. Pomodoro Module
+**⚠️ IMPORTANT**: All new modules will be implemented as **MOCK implementations first**, following the same pattern as Auth and Todos modules. Each module will eventually be replaced with a dedicated microservice.
+
+### 1. Pomodoro Module (Mock → Microservice)
+- **Implementation**: Mock service with in-memory storage
+- **Future**: Dedicated Pomodoro Microservice
 - Timer management for Pomodoro technique
 - Session tracking (work sessions, short breaks, long breaks)
 - Statistics and productivity metrics
 - User-specific timer configurations
 
-### 2. Calendar Module
+### 2. Calendar Module (Mock → Microservice)
+- **Implementation**: Mock service with in-memory storage
+- **Future**: Dedicated Calendar Microservice
 - Event management (create, read, update, delete)
 - Date/time scheduling
 - Event categories and tags
 - Reminders and notifications
 - Integration with Todos module
 
-### 3. Habits Module
+### 3. Habits Module (Mock → Microservice)
+- **Implementation**: Mock service with in-memory storage
+- **Future**: Dedicated Habits Microservice
 - Habit tracking and management
 - Streak tracking
 - Daily/weekly/monthly habit goals
@@ -102,18 +110,31 @@ The following modules are planned for future implementation:
 - ✅ Rate limiting
 - ✅ Health checks
 
-### Phase 2: Productivity Modules (Planned)
-- ⏳ Pomodoro module implementation
-- ⏳ Calendar module implementation
-- ⏳ Habits module implementation
+### Phase 2: Productivity Modules (Planned - All as MOCK)
+- ⏳ Pomodoro module implementation (MOCK with in-memory storage)
+- ⏳ Calendar module implementation (MOCK with in-memory storage)
+- ⏳ Habits module implementation (MOCK with in-memory storage)
+- **Note**: All modules follow the same mock pattern as Auth and Todos
 
-### Phase 3: Microservice Integration (Future)
-- Replace mock implementations with actual microservice calls
+### Phase 3: Microservice Migration (Future)
+- Replace Auth mock → Auth Microservice
+- Replace Todos mock → Todos Microservice
+- Replace Pomodoro mock → Pomodoro Microservice
+- Replace Calendar mock → Calendar Microservice
+- Replace Habits mock → Habits Microservice
 - Implement circuit breakers for all service calls
-- Add caching layer (Redis)
+- Add distributed caching layer (Redis)
 - Enhanced monitoring and metrics
 
-### Phase 4: Production Readiness (Future)
+### Phase 4: Microservice Development (Separate Projects)
+Each microservice will be a separate NestJS project with:
+- Own database (PostgreSQL/MongoDB)
+- Own business logic
+- Own tests and documentation
+- RabbitMQ/HTTP communication with gateway
+- Independent deployment
+
+### Phase 5: Production Readiness (Future)
 - Performance optimization
 - Security hardening
 - Load testing
