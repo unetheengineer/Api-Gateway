@@ -1,0 +1,190 @@
+### API Gateway - Pomodoro Module Tests
+### 🔧 MOCK Implementation - All data stored in-memory
+
+@baseUrl = http://localhost:3000
+@version = v1
+
+### Variables
+@accessToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+@sessionId = session-id-here
+
+###############################################################################
+### 1. Authentication (Get Token First)
+###############################################################################
+
+### 1.1 Login to get access token
+POST {{baseUrl}}/{{version}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "Admin123!"
+}
+
+###############################################################################
+### 2. Pomodoro Configuration
+###############################################################################
+
+### 2.1 Get user's pomodoro configuration
+GET {{baseUrl}}/{{version}}/pomodoro/config
+Authorization: Bearer {{accessToken}}
+
+### 2.2 Update pomodoro configuration
+PATCH {{baseUrl}}/{{version}}/pomodoro/config
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "workDuration": 25,
+  "shortBreakDuration": 5,
+  "longBreakDuration": 15,
+  "sessionsBeforeLongBreak": 4,
+  "autoStartBreaks": false,
+  "autoStartWork": false
+}
+
+###############################################################################
+### 3. Pomodoro Sessions
+###############################################################################
+
+### 3.1 Start a work session
+POST {{baseUrl}}/{{version}}/pomodoro/start
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "type": "work",
+  "linkedTodoId": "1",
+  "notes": "Working on Pomodoro module implementation"
+}
+
+### 3.2 Start a short break session
+POST {{baseUrl}}/{{version}}/pomodoro/start
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "type": "short_break"
+}
+
+### 3.3 Start a long break session
+POST {{baseUrl}}/{{version}}/pomodoro/start
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "type": "long_break",
+  "notes": "Taking a well-deserved break"
+}
+
+### 3.4 Get current active session
+GET {{baseUrl}}/{{version}}/pomodoro/current
+Authorization: Bearer {{accessToken}}
+
+###############################################################################
+### 4. Session Control
+###############################################################################
+
+### 4.1 Pause current session
+POST {{baseUrl}}/{{version}}/pomodoro/{{sessionId}}/pause
+Authorization: Bearer {{accessToken}}
+
+### 4.2 Resume paused session
+POST {{baseUrl}}/{{version}}/pomodoro/{{sessionId}}/resume
+Authorization: Bearer {{accessToken}}
+
+### 4.3 Complete session
+POST {{baseUrl}}/{{version}}/pomodoro/{{sessionId}}/complete
+Authorization: Bearer {{accessToken}}
+
+### 4.4 Cancel session
+DELETE {{baseUrl}}/{{version}}/pomodoro/{{sessionId}}
+Authorization: Bearer {{accessToken}}
+
+###############################################################################
+### 5. Session History
+###############################################################################
+
+### 5.1 Get all sessions (paginated)
+GET {{baseUrl}}/{{version}}/pomodoro/history?page=1&limit=10
+Authorization: Bearer {{accessToken}}
+
+### 5.2 Get only work sessions
+GET {{baseUrl}}/{{version}}/pomodoro/history?type=work&page=1&limit=10
+Authorization: Bearer {{accessToken}}
+
+### 5.3 Get only completed sessions
+GET {{baseUrl}}/{{version}}/pomodoro/history?completedOnly=true&page=1&limit=10
+Authorization: Bearer {{accessToken}}
+
+### 5.4 Get sessions by date range
+GET {{baseUrl}}/{{version}}/pomodoro/history?startDate=2024-01-01T00:00:00.000Z&endDate=2024-12-31T23:59:59.999Z
+Authorization: Bearer {{accessToken}}
+
+### 5.5 Get sessions filtered by status
+GET {{baseUrl}}/{{version}}/pomodoro/history?status=completed&page=1&limit=10
+Authorization: Bearer {{accessToken}}
+
+###############################################################################
+### 6. Statistics
+###############################################################################
+
+### 6.1 Get pomodoro statistics
+GET {{baseUrl}}/{{version}}/pomodoro/stats
+Authorization: Bearer {{accessToken}}
+
+###############################################################################
+### 7. Error Cases
+###############################################################################
+
+### 7.1 Try to start session without authentication
+POST {{baseUrl}}/{{version}}/pomodoro/start
+Content-Type: application/json
+
+{
+  "type": "work"
+}
+
+### 7.2 Try to start second session while one is active
+POST {{baseUrl}}/{{version}}/pomodoro/start
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "type": "work"
+}
+
+### 7.3 Try to pause non-existent session
+POST {{baseUrl}}/{{version}}/pomodoro/invalid-id/pause
+Authorization: Bearer {{accessToken}}
+
+### 7.4 Try to complete already completed session
+POST {{baseUrl}}/{{version}}/pomodoro/{{sessionId}}/complete
+Authorization: Bearer {{accessToken}}
+
+###############################################################################
+### 8. Integration with Todos
+###############################################################################
+
+### 8.1 Get todos list
+GET {{baseUrl}}/{{version}}/todos
+Authorization: Bearer {{accessToken}}
+
+### 8.2 Start work session linked to a specific todo
+POST {{baseUrl}}/{{version}}/pomodoro/start
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "type": "work",
+  "linkedTodoId": "3",
+  "notes": "Working on: Add JWT authentication"
+}
+
+###############################################################################
+### Notes:
+### - Replace {{accessToken}} with actual token from login response
+### - Replace {{sessionId}} with actual session ID from start response
+### - All data is stored in-memory (resets on server restart)
+### - Default config: 25min work, 5min short break, 15min long break
+###############################################################################

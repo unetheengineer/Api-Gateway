@@ -8,6 +8,7 @@ import { HealthModule } from './modules/health/health.module';
 import { MessagingModule } from './modules/messaging/messaging.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { TodosModule } from './modules/todos/todos.module';
+import { PomodoroModule } from './modules/pomodoro/pomodoro.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { ThrottlerBehindProxyGuard } from './common/guards/throttler-behind-proxy.guard';
@@ -58,6 +59,9 @@ import { ThrottlerBehindProxyGuard } from './common/guards/throttler-behind-prox
 
     // ✅ KEEP: Todos Module (Mock - will be microservice)
     TodosModule,
+
+    // ✅ KEEP: Pomodoro Module (Mock - will be microservice)
+    PomodoroModule,
 
     // ❌ REMOVED:
     // - UsersModule
