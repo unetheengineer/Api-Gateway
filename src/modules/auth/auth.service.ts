@@ -1,600 +1,275 @@
 import {
   Injectable,
-  HttpException,
-  HttpStatus,
-  Logger,
-  BadRequestException,
   UnauthorizedException,
+  ConflictException,
+  Logger,
 } from '@nestjs/common';
-import { HttpService } from '@nestjs/axios';
+import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { firstValueFrom, catchError, timeout, TimeoutError } from 'rxjs';
-import { AxiosError } from 'axios';
-import { MessagingService } from '../messaging/messaging.service';
-import { MessagePattern } from '../messaging/messaging.patterns';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { OAuthCallbackDto } from './dto/oauth-callback.dto';
 
+// 🔧 MOCK: In-memory user storage (for demo purposes only)
+interface MockUser {
+  id: string;
+  email: string;
+  password: string; // In real app, this would be hashed
+  firstName: string;
+  lastName: string;
+  roles: string[];
+  refreshToken?: string;
+  createdAt: Date;
+}
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
-  private readonly coreServiceUrl: string;
+
+  // 🔧 MOCK: In-memory user database
+  private mockUsers: MockUser[] = [
+    {
+      id: '1',
+      email: 'admin@example.com',
+      password: 'Admin123!', // ⚠️ Never store plain passwords in production
+      firstName: 'Admin',
+      lastName: 'User',
+      roles: ['admin', 'user'],
+      createdAt: new Date('2024-01-01'),
+    },
+    {
+      id: '2',
+      email: 'user@example.com',
+      password: 'User123!',
+      firstName: 'John',
+      lastName: 'Doe',
+      roles: ['user'],
+      createdAt: new Date('2024-01-15'),
+    },
+  ];
 
   constructor(
-    private readonly http: HttpService,
-    private readonly config: ConfigService,
-    private readonly messagingService: MessagingService,
-  ) {
-    this.coreServiceUrl = this.config.get<string>('CORE_SERVICE_URL') ?? '';
-  }
-
-  async login(dto: LoginDto) {
-    try {
-      // Primary path: RabbitMQ RPC
-      if (this.messagingService.getConnectionStatus()) {
-        try {
-          this.logger.debug('[HYBRID] Login via RabbitMQ RPC');
-          const result = await this.messagingService.sendRpc(
-            MessagePattern.AUTH_LOGIN,
-            dto,
-            { timeout: 10000 },
-          );
-
-          // Publish event for analytics
-          await this.messagingService
-            .publishEvent(MessagePattern.AUTH_LOGIN_SUCCESS, {
-              email: dto.email,
-              timestamp: Date.now(),
-            })
-            .catch((err) =>
-              this.logger.warn('Failed to publish login event', err),
-            );
-
-          return result;
-        } catch (rpcError: any) {
-          this.logger.warn(
-            `[HYBRID] RabbitMQ RPC failed: ${rpcError.message}, falling back to HTTP`,
-          );
-        }
-      }
-
-      // Fallback path: HTTP
-      this.logger.debug('[HYBRID] Login via HTTP fallback');
-      const res = await firstValueFrom(
-        this.http
-          .post(`${this.coreServiceUrl}/auth/login`, dto, {
-            headers: { 'Content-Type': 'application/json' },
-            timeout: 5000,
-          })
-          .pipe(
-            catchError((error: AxiosError) => {
-              throw error;
-            }),
-          ),
-      );
-
-      // Publish event for analytics
-      await this.messagingService
-        .publishEvent(MessagePattern.AUTH_LOGIN_SUCCESS, {
-          email: dto.email,
-          timestamp: Date.now(),
-        })
-        .catch((err) => this.logger.warn('Failed to publish login event', err));
-
-      return res.data;
-    } catch (error: any) {
-      // Publish failed login event
-      await this.messagingService
-        .publishEvent(MessagePattern.AUTH_LOGIN_FAILED, {
-          email: dto.email,
-          reason: 'invalid_credentials',
-          timestamp: Date.now(),
-        })
-        .catch((err) =>
-          this.logger.warn('Failed to publish login failed event', err),
-        );
-
-      if (error?.response) {
-        const status = error.response.status;
-        const message =
-          error.response.data?.message || error.response.data || 'Login failed';
-        throw new HttpException(message, status);
-      }
-      throw new HttpException(
-        'Core service unavailable. Please try again later.',
-        HttpStatus.SERVICE_UNAVAILABLE,
-      );
-    }
-  }
-
-  async register(dto: RegisterDto) {
-    try {
-      // Primary path: RabbitMQ RPC
-      if (this.messagingService.getConnectionStatus()) {
-        try {
-          this.logger.debug('[HYBRID] Register via RabbitMQ RPC');
-          const result = await this.messagingService.sendRpc(
-            MessagePattern.AUTH_REGISTER,
-            dto,
-            { timeout: 10000 },
-          );
-
-          // Publish event for analytics and notifications
-          await this.messagingService
-            .publishEvent(MessagePattern.USER_REGISTERED, {
-              userId: result.user?.id,
-              email: dto.email,
-              timestamp: Date.now(),
-            })
-            .catch((err) =>
-              this.logger.warn('Failed to publish user registered event', err),
-            );
-
-          // Publish welcome email job
-          await this.messagingService
-            .publishJob(MessagePattern.EMAIL_WELCOME, {
-              userId: result.user?.id,
-              email: dto.email,
-            })
-            .catch((err) =>
-              this.logger.warn('Failed to publish welcome email job', err),
-            );
-
-          return result;
-        } catch (rpcError: any) {
-          this.logger.warn(
-            `[HYBRID] RabbitMQ RPC failed: ${rpcError.message}, falling back to HTTP`,
-          );
-        }
-      }
-
-      // Fallback path: HTTP
-      this.logger.debug('[HYBRID] Register via HTTP fallback');
-      const res = await firstValueFrom(
-        this.http
-          .post(`${this.coreServiceUrl}/auth/register`, dto, {
-            headers: { 'Content-Type': 'application/json' },
-            timeout: 5000,
-          })
-          .pipe(
-            catchError((error: AxiosError) => {
-              throw error;
-            }),
-          ),
-      );
-
-      // Publish events
-      await this.messagingService
-        .publishEvent(MessagePattern.USER_REGISTERED, {
-          userId: res.data.user?.id,
-          email: dto.email,
-          timestamp: Date.now(),
-        })
-        .catch((err) =>
-          this.logger.warn('Failed to publish user registered event', err),
-        );
-
-      await this.messagingService
-        .publishJob(MessagePattern.EMAIL_WELCOME, {
-          userId: res.data.user?.id,
-          email: dto.email,
-        })
-        .catch((err) =>
-          this.logger.warn('Failed to publish welcome email job', err),
-        );
-
-      return res.data;
-    } catch (error: any) {
-      if (error?.response) {
-        const status = error.response.status;
-        const message =
-          error.response.data?.message ||
-          error.response.data ||
-          'Registration failed';
-        throw new HttpException(message, status);
-      }
-      throw new HttpException(
-        'Core service unavailable. Please try again later.',
-        HttpStatus.SERVICE_UNAVAILABLE,
-      );
-    }
-  }
-
-  async refresh(dto: RefreshTokenDto) {
-    try {
-      // Primary path: RabbitMQ RPC
-      if (this.messagingService.getConnectionStatus()) {
-        try {
-          this.logger.debug('[HYBRID] Token refresh via RabbitMQ RPC');
-          const result = await this.messagingService.sendRpc(
-            MessagePattern.AUTH_REFRESH,
-            dto,
-            { timeout: 10000 },
-          );
-          return result;
-        } catch (rpcError: any) {
-          this.logger.warn(
-            `[HYBRID] RabbitMQ RPC failed: ${rpcError.message}, falling back to HTTP`,
-          );
-        }
-      }
-
-      // Fallback path: HTTP
-      this.logger.debug('[HYBRID] Token refresh via HTTP fallback');
-      const res = await firstValueFrom(
-        this.http
-          .post(`${this.coreServiceUrl}/auth/refresh`, dto, {
-            headers: { 'Content-Type': 'application/json' },
-            timeout: 5000,
-          })
-          .pipe(
-            catchError((error: AxiosError) => {
-              throw error;
-            }),
-          ),
-      );
-      return res.data;
-    } catch (error: any) {
-      if (error?.response) {
-        const status = error.response.status;
-        const message =
-          error.response.data?.message ||
-          error.response.data ||
-          'Token refresh failed';
-        throw new HttpException(message, status);
-      }
-      throw new HttpException(
-        'Core service unavailable. Please try again later.',
-        HttpStatus.SERVICE_UNAVAILABLE,
-      );
-    }
-  }
-
-  async logout(dto: RefreshTokenDto) {
-    try {
-      // Primary path: RabbitMQ RPC
-      if (this.messagingService.getConnectionStatus()) {
-        try {
-          this.logger.debug('[HYBRID] Logout via RabbitMQ RPC');
-          const result = await this.messagingService.sendRpc(
-            MessagePattern.AUTH_LOGOUT,
-            dto,
-            { timeout: 10000 },
-          );
-
-          // Publish event for analytics
-          await this.messagingService
-            .publishEvent(MessagePattern.AUTH_LOGOUT_SUCCESS, {
-              timestamp: Date.now(),
-            })
-            .catch((err) =>
-              this.logger.warn('Failed to publish logout event', err),
-            );
-
-          return result;
-        } catch (rpcError: any) {
-          this.logger.warn(
-            `[HYBRID] RabbitMQ RPC failed: ${rpcError.message}, falling back to HTTP`,
-          );
-        }
-      }
-
-      // Fallback path: HTTP
-      this.logger.debug('[HYBRID] Logout via HTTP fallback');
-      const res = await firstValueFrom(
-        this.http
-          .post(`${this.coreServiceUrl}/auth/logout`, dto, {
-            headers: { 'Content-Type': 'application/json' },
-            timeout: 5000,
-          })
-          .pipe(
-            catchError((error: AxiosError) => {
-              throw error;
-            }),
-          ),
-      );
-
-      // Publish event
-      await this.messagingService
-        .publishEvent(MessagePattern.AUTH_LOGOUT_SUCCESS, {
-          timestamp: Date.now(),
-        })
-        .catch((err) =>
-          this.logger.warn('Failed to publish logout event', err),
-        );
-
-      return res.data;
-    } catch (error: any) {
-      if (error?.response) {
-        const status = error.response.status;
-        const message =
-          error.response.data?.message ||
-          error.response.data ||
-          'Logout failed';
-        throw new HttpException(message, status);
-      }
-      throw new HttpException(
-        'Core service unavailable. Please try again later.',
-        HttpStatus.SERVICE_UNAVAILABLE,
-      );
-    }
-  }
-
-  // ============================================
-  // OAUTH METHODS
-  // ============================================
+    private jwtService: JwtService,
+    private configService: ConfigService,
+  ) {}
 
   /**
-   * GOOGLE OAUTH - Get Authorization URL
-   * Strategy: HTTP → Core Service
+   * 🔧 MOCK: Login user and return JWT tokens
+   * TODO: Replace with microservice call when integrating
    */
-  async getGoogleAuthUrl(redirectUri: string): Promise<{ url: string }> {
-    this.logger.log('[FAST-PATH] Getting Google OAuth URL');
+  async login(loginDto: LoginDto) {
+    this.logger.log(`[MOCK] Login attempt for: ${loginDto.email}`);
+
+    // 🔧 MOCK: Find user by email
+    const user = this.mockUsers.find((u) => u.email === loginDto.email);
+
+    if (!user || user.password !== loginDto.password) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Generate tokens
+    const tokens = await this.generateTokens(user);
+
+    // Save refresh token
+    user.refreshToken = tokens.refreshToken;
+
+    this.logger.log(`[MOCK] Login successful for: ${user.email}`);
+
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        roles: user.roles,
+      },
+    };
+  }
+
+  /**
+   * 🔧 MOCK: Register new user
+   * TODO: Replace with microservice call when integrating
+   */
+  async register(registerDto: RegisterDto) {
+    this.logger.log(`[MOCK] Registration attempt for: ${registerDto.email}`);
+
+    // Check if user already exists
+    const existingUser = this.mockUsers.find(
+      (u) => u.email === registerDto.email,
+    );
+
+    if (existingUser) {
+      throw new ConflictException('User with this email already exists');
+    }
+
+    // 🔧 MOCK: Create new user
+    const newUser: MockUser = {
+      id: (this.mockUsers.length + 1).toString(),
+      email: registerDto.email,
+      password: registerDto.password, // ⚠️ Should be hashed in production
+      firstName: registerDto.firstName,
+      lastName: registerDto.lastName,
+      roles: ['user'],
+      createdAt: new Date(),
+    };
+
+    this.mockUsers.push(newUser);
+
+    // Generate tokens
+    const tokens = await this.generateTokens(newUser);
+
+    // Save refresh token
+    newUser.refreshToken = tokens.refreshToken;
+
+    this.logger.log(`[MOCK] Registration successful for: ${newUser.email}`);
+
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      user: {
+        id: newUser.id,
+        email: newUser.email,
+        firstName: newUser.firstName,
+        lastName: newUser.lastName,
+        roles: newUser.roles,
+      },
+    };
+  }
+
+  /**
+   * 🔧 MOCK: Refresh access token using refresh token
+   * TODO: Replace with microservice call when integrating
+   */
+  async refreshToken(refreshTokenDto: RefreshTokenDto) {
+    this.logger.log('[MOCK] Refresh token request');
 
     try {
-      const url = `${this.coreServiceUrl}/auth/google`;
-      const response = await firstValueFrom(
-        this.http
-          .get(url, {
-            params: { redirect_uri: redirectUri },
-          })
-          .pipe(
-            timeout(5000),
-            catchError((error) => {
-              this.logger.error(
-                `Failed to get Google OAuth URL: ${error.message}`,
-              );
-              throw new BadRequestException(
-                'Failed to initiate Google OAuth',
-              );
-            }),
-          ),
+      // Verify refresh token
+      const payload = await this.jwtService.verifyAsync(
+        refreshTokenDto.refreshToken,
+        {
+          secret: this.configService.get<string>('JWT_SECRET'),
+        },
       );
 
-      return response.data;
+      // Find user by ID
+      const user = this.mockUsers.find((u) => u.id === payload.sub);
+
+      if (!user || user.refreshToken !== refreshTokenDto.refreshToken) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      // Generate new tokens
+      const tokens = await this.generateTokens(user);
+
+      // Update refresh token
+      user.refreshToken = tokens.refreshToken;
+
+      this.logger.log(`[MOCK] Token refresh successful for: ${user.email}`);
+
+      return {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+      };
     } catch (error) {
-      this.logger.error(`Google OAuth URL error: ${error.message}`);
-      throw error;
+      this.logger.error('[MOCK] Token refresh failed:', error.message);
+      throw new UnauthorizedException('Invalid or expired refresh token');
     }
   }
 
   /**
-   * GITHUB OAUTH - Get Authorization URL
-   * Strategy: HTTP → Core Service
+   * 🔧 MOCK: OAuth callback handler
+   * TODO: Implement actual OAuth flow when integrating with providers
    */
-  async getGithubAuthUrl(redirectUri: string): Promise<{ url: string }> {
-    this.logger.log('[FAST-PATH] Getting GitHub OAuth URL');
+  async oauthCallback(oauthCallbackDto: OAuthCallbackDto) {
+    this.logger.log(
+      `[MOCK] OAuth callback from provider: ${oauthCallbackDto.provider || 'unknown'}`,
+    );
 
-    try {
-      const url = `${this.coreServiceUrl}/auth/github`;
-      const response = await firstValueFrom(
-        this.http
-          .get(url, {
-            params: { redirect_uri: redirectUri },
-          })
-          .pipe(
-            timeout(5000),
-            catchError((error) => {
-              this.logger.error(
-                `Failed to get GitHub OAuth URL: ${error.message}`,
-              );
-              throw new BadRequestException(
-                'Failed to initiate GitHub OAuth',
-              );
-            }),
-          ),
-      );
+    // 🔧 MOCK: Simulate OAuth user creation/login
+    // In real implementation:
+    // 1. Exchange code for access token with OAuth provider
+    // 2. Fetch user info from OAuth provider
+    // 3. Create or find user in database
+    // 4. Generate JWT tokens
 
-      return response.data;
-    } catch (error) {
-      this.logger.error(`GitHub OAuth URL error: ${error.message}`);
-      throw error;
-    }
+    const mockOAuthUser: MockUser = {
+      id: '999',
+      email: 'oauth.user@example.com',
+      password: '', // OAuth users don't have passwords
+      firstName: 'OAuth',
+      lastName: 'User',
+      roles: ['user'],
+      createdAt: new Date(),
+    };
+
+    const tokens = await this.generateTokens(mockOAuthUser);
+
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      user: {
+        id: mockOAuthUser.id,
+        email: mockOAuthUser.email,
+        firstName: mockOAuthUser.firstName,
+        lastName: mockOAuthUser.lastName,
+        roles: mockOAuthUser.roles,
+      },
+    };
   }
 
   /**
-   * GOOGLE OAUTH CALLBACK
-   * Strategy: HTTP → Core Service + Event Publishing
+   * 🔧 MOCK: Logout user (invalidate refresh token)
+   * TODO: Replace with microservice call when integrating
    */
-  async handleGoogleCallback(callbackDto: OAuthCallbackDto) {
-    this.logger.log('[HYBRID] Handling Google OAuth callback');
+  async logout(userId: string) {
+    this.logger.log(`[MOCK] Logout request for user: ${userId}`);
 
-    // Check for OAuth errors
-    if (callbackDto.error) {
-      this.logger.warn(`Google OAuth error: ${callbackDto.error}`);
+    const user = this.mockUsers.find((u) => u.id === userId);
 
-      // Publish failed event
-      if (this.messagingService.getConnectionStatus()) {
-        await this.messagingService
-          .publishEvent(MessagePattern.AUTH_LOGIN_FAILED, {
-            provider: 'google',
-            error: callbackDto.error,
-            error_description: callbackDto.error_description,
-            timestamp: Date.now(),
-          })
-          .catch((err) =>
-            this.logger.error('Failed to publish OAuth error event', err),
-          );
-      }
-
-      throw new BadRequestException(
-        callbackDto.error_description || 'Google OAuth authentication failed',
-      );
+    if (user) {
+      user.refreshToken = undefined;
+      this.logger.log(`[MOCK] Logout successful for: ${user.email}`);
     }
 
-    try {
-      // Forward to Core Service
-      const url = `${this.coreServiceUrl}/auth/google/callback`;
-      const response = await firstValueFrom(
-        this.http
-          .post(url, callbackDto)
-          .pipe(
-            timeout(15000),
-            catchError((error: any) => {
-              if (error instanceof TimeoutError) {
-                throw new BadRequestException('OAuth authentication timeout');
-              }
-              if (error.response?.status === 401) {
-                throw new UnauthorizedException('Invalid OAuth code');
-              }
-              throw error;
-            }),
-          ),
-      );
-
-      const result = response.data;
-
-      // Publish success event
-      if (this.messagingService.getConnectionStatus()) {
-        await this.messagingService
-          .publishEvent(MessagePattern.AUTH_LOGIN_SUCCESS, {
-            userId: result.user?.id,
-            email: result.user?.email,
-            provider: 'google',
-            timestamp: Date.now(),
-          })
-          .catch((err) =>
-            this.logger.error('Failed to publish OAuth success event', err),
-          );
-
-        // If new user, publish registered event
-        if (result.isNewUser) {
-          await this.messagingService
-            .publishEvent(MessagePattern.USER_REGISTERED, {
-              userId: result.user.id,
-              email: result.user.email,
-              provider: 'google',
-              timestamp: Date.now(),
-            })
-            .catch((err) =>
-              this.logger.error('Failed to publish user registered event', err),
-            );
-
-          // Send welcome email
-          await this.messagingService
-            .publishJob(
-              MessagePattern.EMAIL_WELCOME,
-              {
-                userId: result.user.id,
-                email: result.user.email,
-                name: result.user.name,
-              },
-              { retryCount: 3 },
-            )
-            .catch((err) =>
-              this.logger.error('Failed to publish welcome email job', err),
-            );
-        }
-      }
-
-      return result;
-    } catch (error) {
-      this.logger.error(`Google OAuth callback error: ${error.message}`);
-      throw error;
-    }
+    return { message: 'Logout successful' };
   }
 
   /**
-   * GITHUB OAUTH CALLBACK
-   * Strategy: HTTP → Core Service + Event Publishing
+   * Generate JWT access and refresh tokens
    */
-  async handleGithubCallback(callbackDto: OAuthCallbackDto) {
-    this.logger.log('[HYBRID] Handling GitHub OAuth callback');
+  private async generateTokens(user: MockUser) {
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      roles: user.roles,
+    };
 
-    // Check for OAuth errors
-    if (callbackDto.error) {
-      this.logger.warn(`GitHub OAuth error: ${callbackDto.error}`);
+    const accessToken = await this.jwtService.signAsync(payload);
 
-      // Publish failed event
-      if (this.messagingService.getConnectionStatus()) {
-        await this.messagingService
-          .publishEvent(MessagePattern.AUTH_LOGIN_FAILED, {
-            provider: 'github',
-            error: callbackDto.error,
-            error_description: callbackDto.error_description,
-            timestamp: Date.now(),
-          })
-          .catch((err) =>
-            this.logger.error('Failed to publish OAuth error event', err),
-          );
-      }
+    const refreshToken = await this.jwtService.signAsync(payload, {
+      expiresIn: '7d', // Refresh tokens typically last longer
+    });
 
-      throw new BadRequestException(
-        callbackDto.error_description || 'GitHub OAuth authentication failed',
-      );
-    }
+    return { accessToken, refreshToken };
+  }
 
-    try {
-      // Forward to Core Service
-      const url = `${this.coreServiceUrl}/auth/github/callback`;
-      const response = await firstValueFrom(
-        this.http
-          .post(url, callbackDto)
-          .pipe(
-            timeout(15000),
-            catchError((error: any) => {
-              if (error instanceof TimeoutError) {
-                throw new BadRequestException('OAuth authentication timeout');
-              }
-              if (error.response?.status === 401) {
-                throw new UnauthorizedException('Invalid OAuth code');
-              }
-              throw error;
-            }),
-          ),
-      );
-
-      const result = response.data;
-
-      // Publish success event
-      if (this.messagingService.getConnectionStatus()) {
-        await this.messagingService
-          .publishEvent(MessagePattern.AUTH_LOGIN_SUCCESS, {
-            userId: result.user?.id,
-            email: result.user?.email,
-            provider: 'github',
-            timestamp: Date.now(),
-          })
-          .catch((err) =>
-            this.logger.error('Failed to publish OAuth success event', err),
-          );
-
-        // If new user, publish registered event
-        if (result.isNewUser) {
-          await this.messagingService
-            .publishEvent(MessagePattern.USER_REGISTERED, {
-              userId: result.user.id,
-              email: result.user.email,
-              provider: 'github',
-              timestamp: Date.now(),
-            })
-            .catch((err) =>
-              this.logger.error('Failed to publish user registered event', err),
-            );
-
-          // Send welcome email
-          await this.messagingService
-            .publishJob(
-              MessagePattern.EMAIL_WELCOME,
-              {
-                userId: result.user.id,
-                email: result.user.email,
-                name: result.user.name,
-              },
-              { retryCount: 3 },
-            )
-            .catch((err) =>
-              this.logger.error('Failed to publish welcome email job', err),
-            );
-        }
-      }
-
-      return result;
-    } catch (error) {
-      this.logger.error(`GitHub OAuth callback error: ${error.message}`);
-      throw error;
-    }
+  /**
+   * 🔧 MOCK: Get all users (for testing purposes)
+   */
+  getAllMockUsers() {
+    return this.mockUsers.map((u) => ({
+      id: u.id,
+      email: u.email,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      roles: u.roles,
+      createdAt: u.createdAt,
+    }));
   }
 }

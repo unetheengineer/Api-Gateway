@@ -1,78 +1,59 @@
 import {
   Controller,
   Post,
-  Get,
   Body,
-  HttpException,
-  HttpStatus,
-  Logger,
   HttpCode,
-  Res,
-  Query,
-  Version,
+  HttpStatus,
+  UseGuards,
+  Get,
+  Req,
 } from '@nestjs/common';
-import type { Response } from 'express';
-import { HttpService } from '@nestjs/axios';
-import { ConfigService } from '@nestjs/config';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
-import { firstValueFrom, catchError } from 'rxjs';
-import { AxiosError } from 'axios';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
+import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { OAuthCallbackDto } from './dto/oauth-callback.dto';
-import { AuthService } from './auth.service';
-import { ApiCommonResponses } from '../../common/decorators/api-common-responses.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import type { Request } from 'express';
 
 @ApiTags('Authentication')
-@ApiCommonResponses()
-@Controller('auth')
+@Controller({ path: 'auth', version: '1' })
 export class AuthController {
-  private readonly logger = new Logger(AuthController.name);
-  private readonly coreServiceUrl: string;
+  constructor(private readonly authService: AuthService) {}
 
-  constructor(
-    private readonly httpService: HttpService,
-    private readonly configService: ConfigService,
-    private readonly authService: AuthService,
-  ) {
-    this.coreServiceUrl =
-      this.configService.get<string>('CORE_SERVICE_URL') ??
-      'http://localhost:3001';
-
-    if (!this.coreServiceUrl) {
-      this.logger.error('CORE_SERVICE_URL is not configured');
-      throw new Error('CORE_SERVICE_URL environment variable is required');
-    }
-
-    this.logger.log(
-      `Initialized Auth Controller - Core Service: ${this.coreServiceUrl}`,
-    );
-  }
-
+  /**
+   * Login endpoint
+   * Returns JWT access token and refresh token
+   */
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'User login',
+    summary: 'Login user',
     description:
-      'Authenticate user and receive access/refresh tokens. Proxied to Core Service.',
+      '🔧 MOCK: Authenticates user with email and password. Returns JWT tokens.\n\n' +
+      '**Test Credentials:**\n' +
+      '- Admin: `admin@example.com` / `Admin123!`\n' +
+      '- User: `user@example.com` / `User123!`',
   })
-  @ApiBody({ type: LoginDto })
   @ApiResponse({
     status: 200,
-    description: 'Login successful - Returns access and refresh tokens',
+    description: 'Login successful',
     schema: {
       example: {
-        accessToken:
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwiZW1haWwiOiJ1c2VyQGV4YW1wbGUuY29tIn0...',
-        refreshToken:
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwidHlwZSI6InJlZnJlc2gifQ...',
+        accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        refreshToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
         user: {
-          id: '123e4567-e89b-12d3-a456-426614174000',
-          email: 'user@example.com',
-          firstName: 'John',
-          lastName: 'Doe',
-          isActive: true,
+          id: '1',
+          email: 'admin@example.com',
+          firstName: 'Admin',
+          lastName: 'User',
+          roles: ['admin', 'user'],
         },
       },
     },
@@ -80,248 +61,124 @@ export class AuthController {
   @ApiResponse({
     status: 401,
     description: 'Invalid credentials',
-    schema: {
-      example: {
-        statusCode: 401,
-        message: 'Invalid email or password',
-        error: 'Unauthorized',
-      },
-    },
-  })
-  @ApiResponse({
-    status: 503,
-    description: 'Core service unavailable',
-    schema: {
-      example: {
-        statusCode: 503,
-        message: 'Core service unavailable',
-        error: 'Service Unavailable',
-      },
-    },
   })
   async login(@Body() loginDto: LoginDto) {
-    try {
-      this.logger.log(`[PROXY] Login request - Email: ${loginDto.email}`);
-
-      const response = await firstValueFrom(
-        this.httpService
-          .post(`${this.coreServiceUrl}/auth/login`, loginDto, {
-            headers: { 'Content-Type': 'application/json' },
-            timeout: 5000,
-          })
-          .pipe(
-            catchError((error: AxiosError) => {
-              throw error;
-            }),
-          ),
-      );
-
-      this.logger.log(`[PROXY] Login successful - Email: ${loginDto.email}`);
-      return response.data;
-    } catch (error) {
-      this.logger.error(
-        `[PROXY] Login failed - Email: ${loginDto.email} - Error: ${error.message}`,
-      );
-
-      if (error.response) {
-        const status = error.response.status;
-        const message =
-          error.response.data?.message || error.response.data || 'Login failed';
-
-        throw new HttpException(message, status);
-      }
-
-      throw new HttpException(
-        'Core service unavailable. Please try again later.',
-        HttpStatus.SERVICE_UNAVAILABLE,
-      );
-    }
+    return this.authService.login(loginDto);
   }
 
+  /**
+   * Register endpoint
+   * Creates new user and returns JWT tokens
+   */
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
-    summary: 'User registration',
-    description: 'Create a new user account. Proxied to Core Service.',
+    summary: 'Register new user',
+    description:
+      '🔧 MOCK: Creates a new user account and returns JWT tokens.\n\n' +
+      'Password requirements: min 8 chars, uppercase, lowercase, number, special char',
   })
-  @ApiBody({ type: RegisterDto })
   @ApiResponse({
     status: 201,
-    description: 'Registration successful - Returns access and refresh tokens',
+    description: 'Registration successful',
     schema: {
       example: {
-        accessToken:
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwiZW1haWwiOiJ1c2VyQGV4YW1wbGUuY29tIn0...',
-        refreshToken:
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwidHlwZSI6InJlZnJlc2gifQ...',
+        accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        refreshToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
         user: {
-          id: '123e4567-e89b-12d3-a456-426614174000',
-          email: 'user@example.com',
-          firstName: 'John',
-          lastName: 'Doe',
-          isActive: true,
+          id: '3',
+          email: 'newuser@example.com',
+          firstName: 'Jane',
+          lastName: 'Smith',
+          roles: ['user'],
         },
       },
     },
   })
   @ApiResponse({
-    status: 400,
-    description: 'Invalid input data',
-    schema: {
-      example: {
-        statusCode: 400,
-        message: [
-          'email must be a valid email',
-          'password must be at least 6 characters',
-        ],
-        error: 'Bad Request',
-      },
-    },
-  })
-  @ApiResponse({
     status: 409,
-    description: 'User with this email already exists',
-    schema: {
-      example: {
-        statusCode: 409,
-        message: 'User with this email already exists',
-        error: 'Conflict',
-      },
-    },
-  })
-  @ApiResponse({
-    status: 503,
-    description: 'Core service unavailable',
+    description: 'User already exists',
   })
   async register(@Body() registerDto: RegisterDto) {
-    try {
-      this.logger.log(
-        `[PROXY] Registration request - Email: ${registerDto.email}`,
-      );
-
-      const response = await firstValueFrom(
-        this.httpService
-          .post(`${this.coreServiceUrl}/auth/register`, registerDto, {
-            headers: { 'Content-Type': 'application/json' },
-            timeout: 5000,
-          })
-          .pipe(
-            catchError((error: AxiosError) => {
-              throw error;
-            }),
-          ),
-      );
-
-      this.logger.log(
-        `[PROXY] Registration successful - Email: ${registerDto.email}`,
-      );
-      return response.data;
-    } catch (error) {
-      this.logger.error(
-        `[PROXY] Registration failed - Email: ${registerDto.email} - Error: ${error.message}`,
-      );
-
-      if (error.response) {
-        const status = error.response.status;
-        const message =
-          error.response.data?.message ||
-          error.response.data ||
-          'Registration failed';
-
-        throw new HttpException(message, status);
-      }
-
-      throw new HttpException(
-        'Core service unavailable. Please try again later.',
-        HttpStatus.SERVICE_UNAVAILABLE,
-      );
-    }
+    return this.authService.register(registerDto);
   }
 
+  /**
+   * Refresh token endpoint
+   * Issues new access token using refresh token
+   */
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Refresh access token',
     description:
-      'Get a new access token using refresh token. Proxied to Core Service.',
+      '🔧 MOCK: Generates a new access token using a valid refresh token.',
   })
-  @ApiBody({ type: RefreshTokenDto })
   @ApiResponse({
     status: 200,
     description: 'Token refreshed successfully',
     schema: {
       example: {
-        accessToken:
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwiZW1haWwiOiJ1c2VyQGV4YW1wbGUuY29tIn0...',
-        refreshToken:
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwidHlwZSI6InJlZnJlc2gifQ...',
+        accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        refreshToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
       },
     },
   })
   @ApiResponse({
     status: 401,
     description: 'Invalid or expired refresh token',
+  })
+  async refreshToken(@Body() refreshTokenDto: RefreshTokenDto) {
+    return this.authService.refreshToken(refreshTokenDto);
+  }
+
+  /**
+   * OAuth callback endpoint
+   * Handles OAuth provider callbacks (Google, GitHub, etc.)
+   */
+  @Post('oauth/callback')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'OAuth callback handler',
+    description:
+      '🔧 MOCK: Handles OAuth provider callbacks.\n\n' +
+      'In production, this exchanges authorization code for user tokens.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'OAuth authentication successful',
     schema: {
       example: {
-        statusCode: 401,
-        message: 'Invalid or expired refresh token',
-        error: 'Unauthorized',
+        accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        refreshToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        user: {
+          id: '999',
+          email: 'oauth.user@example.com',
+          firstName: 'OAuth',
+          lastName: 'User',
+          roles: ['user'],
+        },
       },
     },
   })
-  @ApiResponse({
-    status: 503,
-    description: 'Core service unavailable',
-  })
-  async refresh(@Body() refreshTokenDto: RefreshTokenDto) {
-    try {
-      this.logger.log('[PROXY] Token refresh request');
-
-      const response = await firstValueFrom(
-        this.httpService
-          .post(`${this.coreServiceUrl}/auth/refresh`, refreshTokenDto, {
-            headers: { 'Content-Type': 'application/json' },
-            timeout: 5000,
-          })
-          .pipe(
-            catchError((error: AxiosError) => {
-              throw error;
-            }),
-          ),
-      );
-
-      this.logger.log('[PROXY] Token refresh successful');
-      return response.data;
-    } catch (error) {
-      this.logger.error(
-        `[PROXY] Token refresh failed - Error: ${error.message}`,
-      );
-
-      if (error.response) {
-        const status = error.response.status;
-        const message =
-          error.response.data?.message ||
-          error.response.data ||
-          'Token refresh failed';
-
-        throw new HttpException(message, status);
-      }
-
-      throw new HttpException(
-        'Core service unavailable. Please try again later.',
-        HttpStatus.SERVICE_UNAVAILABLE,
-      );
-    }
+  async oauthCallback(@Body() oauthCallbackDto: OAuthCallbackDto) {
+    return this.authService.oauthCallback(oauthCallbackDto);
   }
 
+  /**
+   * Logout endpoint (protected)
+   * Invalidates user's refresh token
+   */
   @Post('logout')
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
   @ApiOperation({
-    summary: 'User logout',
+    summary: 'Logout user',
     description:
-      'Revoke refresh token and logout user. Proxied to Core Service.',
+      '🔧 MOCK: Invalidates user refresh token.\n\n' +
+      '**Requires:** Valid JWT access token in Authorization header',
   })
-  @ApiBody({ type: RefreshTokenDto })
   @ApiResponse({
     status: 200,
     description: 'Logout successful',
@@ -333,336 +190,66 @@ export class AuthController {
   })
   @ApiResponse({
     status: 401,
-    description: 'Invalid refresh token',
-    schema: {
-      example: {
-        statusCode: 401,
-        message: 'Invalid refresh token',
-        error: 'Unauthorized',
-      },
-    },
+    description: 'Unauthorized - Invalid or missing token',
   })
-  @ApiResponse({
-    status: 503,
-    description: 'Core service unavailable',
-  })
-  async logout(@Body() refreshTokenDto: RefreshTokenDto) {
-    try {
-      this.logger.log('[PROXY] Logout request');
-
-      const response = await firstValueFrom(
-        this.httpService
-          .post(`${this.coreServiceUrl}/auth/logout`, refreshTokenDto, {
-            headers: { 'Content-Type': 'application/json' },
-            timeout: 5000,
-          })
-          .pipe(
-            catchError((error: AxiosError) => {
-              throw error;
-            }),
-          ),
-      );
-
-      this.logger.log('[PROXY] Logout successful');
-      return response.data;
-    } catch (error) {
-      this.logger.error(`[PROXY] Logout failed - Error: ${error.message}`);
-
-      if (error.response) {
-        const status = error.response.status;
-        const message =
-          error.response.data?.message ||
-          error.response.data ||
-          'Logout failed';
-
-        throw new HttpException(message, status);
-      }
-
-      throw new HttpException(
-        'Core service unavailable. Please try again later.',
-        HttpStatus.SERVICE_UNAVAILABLE,
-      );
-    }
-  }
-  // ============================================
-  // OAUTH PROXY ENDPOINTS
-  // ============================================
-
-  @Get('google')
-  @ApiOperation({
-    summary: 'Google OAuth - Initiate',
-    description: 'Start Google OAuth flow. Redirects to Google login page.',
-  })
-  @ApiResponse({
-    status: 302,
-    description: 'Redirects to Google OAuth page',
-  })
-  async googleAuth(@Res() res: Response) {
-    const url = `${this.coreServiceUrl}/auth/google`;
-    this.logger.log(`[PROXY] Redirecting to Google OAuth: ${url}`);
-    return res.redirect(url);
-  }
-
-  @Get('google/callback')
-  @ApiOperation({
-    summary: 'Google OAuth - Callback',
-    description:
-      'Google OAuth callback endpoint. Receives tokens and redirects to frontend.',
-  })
-  @ApiResponse({
-    status: 302,
-    description: 'Redirects to frontend with tokens',
-  })
-  async googleAuthCallback(@Query() query: any, @Res() res: Response) {
-    this.logger.log('[PROXY] Google OAuth callback received');
-
-    // Core Service'den gelen redirect'i frontend'e yönlendir
-    const url = `${this.coreServiceUrl}/auth/google/callback?code=${query.code}&state=${query.state}`;
-
-    try {
-      const response = await firstValueFrom(
-        this.httpService
-          .get(url, {
-            maxRedirects: 0,
-            validateStatus: (status) => status === 302 || status === 200,
-          })
-          .pipe(
-            catchError((error: AxiosError) => {
-              throw error;
-            }),
-          ),
-      );
-
-      // Core Service'den gelen redirect location'ı al
-      const redirectUrl =
-        response.headers.location || response.data?.redirectUrl;
-
-      if (redirectUrl) {
-        return res.redirect(redirectUrl);
-      }
-
-      throw new HttpException(
-        'OAuth callback failed',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    } catch (error: any) {
-      this.logger.error(
-        `[PROXY] Google OAuth callback failed: ${error.message}`,
-      );
-      throw new HttpException(
-        'OAuth authentication failed',
-        HttpStatus.UNAUTHORIZED,
-      );
-    }
-  }
-
-  @Get('github')
-  @ApiOperation({
-    summary: 'GitHub OAuth - Initiate',
-    description: 'Start GitHub OAuth flow. Redirects to GitHub login page.',
-  })
-  @ApiResponse({
-    status: 302,
-    description: 'Redirects to GitHub OAuth page',
-  })
-  async githubAuth(@Res() res: Response) {
-    const url = `${this.coreServiceUrl}/auth/github`;
-    this.logger.log(`[PROXY] Redirecting to GitHub OAuth: ${url}`);
-    return res.redirect(url);
-  }
-
-  @Get('github/callback')
-  @ApiOperation({
-    summary: 'GitHub OAuth - Callback',
-    description:
-      'GitHub OAuth callback endpoint. Receives tokens and redirects to frontend.',
-  })
-  @ApiResponse({
-    status: 302,
-    description: 'Redirects to frontend with tokens',
-  })
-  async githubAuthCallback(@Query() query: any, @Res() res: Response) {
-    this.logger.log('[PROXY] GitHub OAuth callback received');
-
-    const url = `${this.coreServiceUrl}/auth/github/callback?code=${query.code}&state=${query.state}`;
-
-    try {
-      const response = await firstValueFrom(
-        this.httpService
-          .get(url, {
-            maxRedirects: 0,
-            validateStatus: (status) => status === 302 || status === 200,
-          })
-          .pipe(
-            catchError((error: AxiosError) => {
-              throw error;
-            }),
-          ),
-      );
-
-      const redirectUrl =
-        response.headers.location || response.data?.redirectUrl;
-
-      if (redirectUrl) {
-        return res.redirect(redirectUrl);
-      }
-
-      throw new HttpException(
-        'OAuth callback failed',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    } catch (error: any) {
-      this.logger.error(
-        `[PROXY] GitHub OAuth callback failed: ${error.message}`,
-      );
-      throw new HttpException(
-        'OAuth authentication failed',
-        HttpStatus.UNAUTHORIZED,
-      );
-    }
-  }
-
-  // ============================================
-  // NEW OAUTH ENDPOINTS
-  // ============================================
-
-  /**
-   * GET /auth/google
-   * Get Google OAuth authorization URL
-   */
-  @Get('google')
-  @ApiOperation({
-    summary: 'Initiate Google OAuth login',
-    description:
-      'Returns Google OAuth authorization URL. Frontend should redirect user to this URL.',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Google OAuth URL',
-    schema: {
-      example: {
-        statusCode: 200,
-        data: {
-          url: 'https://accounts.google.com/o/oauth2/v2/auth?client_id=...',
-        },
-      },
-    },
-  })
-  async getGoogleAuthUrl(
-    @Query('redirect_uri') redirectUri?: string,
-  ) {
-    return this.authService.getGoogleAuthUrl(
-      redirectUri || 'http://localhost:5173/auth/callback',
-    );
+  async logout(@Req() req: Request) {
+    const user = req.user as any;
+    return this.authService.logout(user.userId);
   }
 
   /**
-   * GET /auth/github
-   * Get GitHub OAuth authorization URL
+   * Get current user endpoint (protected)
+   * Returns authenticated user info from JWT
    */
-  @Get('github')
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Initiate GitHub OAuth login',
+    summary: 'Get current user',
     description:
-      'Returns GitHub OAuth authorization URL. Frontend should redirect user to this URL.',
+      'Returns authenticated user information extracted from JWT token.\n\n' +
+      '**Requires:** Valid JWT access token in Authorization header',
   })
   @ApiResponse({
     status: 200,
-    description: 'GitHub OAuth URL',
+    description: 'User information retrieved',
     schema: {
       example: {
-        statusCode: 200,
-        data: {
-          url: 'https://github.com/login/oauth/authorize?client_id=...',
-        },
+        userId: '1',
+        email: 'admin@example.com',
+        firstName: 'Admin',
+        lastName: 'User',
+        roles: ['admin', 'user'],
       },
     },
   })
-  async getGithubAuthUrl(
-    @Query('redirect_uri') redirectUri?: string,
-  ) {
-    return this.authService.getGithubAuthUrl(
-      redirectUri || 'http://localhost:5173/auth/callback',
-    );
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing token',
+  })
+  async getCurrentUser(@Req() req: Request) {
+    return req.user;
   }
 
   /**
-   * GET /auth/google/callback
-   * Google OAuth callback endpoint
+   * 🔧 MOCK: Debug endpoint to see all mock users
+   * Remove this in production!
    */
-  @Get('google/callback')
+  @Get('debug/users')
   @ApiOperation({
-    summary: 'Google OAuth callback',
+    summary: '🔧 [DEBUG] Get all mock users',
     description:
-      'Handles Google OAuth callback. Returns JWT tokens and user data.',
+      '⚠️ DEVELOPMENT ONLY - Shows all mock users for testing.\n\n' +
+      'Remove this endpoint in production!',
   })
   @ApiResponse({
     status: 200,
-    description: 'OAuth login successful',
-    schema: {
-      example: {
-        statusCode: 200,
-        data: {
-          access_token: 'eyJhbGc...',
-          refresh_token: 'eyJhbGc...',
-          expires_in: 3600,
-          token_type: 'Bearer',
-          user: {
-            id: 'user-id',
-            email: 'user@gmail.com',
-            name: 'John Doe',
-            avatar: 'https://...',
-          },
-          isNewUser: false,
-        },
-      },
-    },
+    description: 'List of all mock users',
   })
-  @ApiResponse({
-    status: 400,
-    description: 'Invalid OAuth code or OAuth error',
-  })
-  async handleGoogleCallback(@Query() callbackDto: OAuthCallbackDto) {
-    return this.authService.handleGoogleCallback(callbackDto);
-  }
-
-  /**
-   * GET /auth/github/callback
-   * GitHub OAuth callback endpoint
-   */
-  @Get('github/callback')
-  @ApiOperation({
-    summary: 'GitHub OAuth callback',
-    description:
-      'Handles GitHub OAuth callback. Returns JWT tokens and user data.',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'OAuth login successful',
-    schema: {
-      example: {
-        statusCode: 200,
-        data: {
-          access_token: 'eyJhbGc...',
-          refresh_token: 'eyJhbGc...',
-          expires_in: 3600,
-          token_type: 'Bearer',
-          user: {
-            id: 'user-id',
-            email: 'user@github.com',
-            name: 'John Doe',
-            avatar: 'https://...',
-          },
-          isNewUser: false,
-        },
-      },
-    },
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Invalid OAuth code or OAuth error',
-  })
-  async handleGithubCallback(@Query() callbackDto: OAuthCallbackDto) {
-    return this.authService.handleGithubCallback(callbackDto);
+  async getAllMockUsers() {
+    return {
+      message: '🔧 MOCK DATA - Remove this endpoint in production',
+      users: this.authService.getAllMockUsers(),
+    };
   }
 }

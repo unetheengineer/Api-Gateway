@@ -1,0 +1,122 @@
+### Rate Limiting Test File
+### Use REST Client extension in VS Code to run these tests
+
+@baseUrl = http://localhost:3000
+@apiVersion = v1
+
+###############################################
+# 1. Test IP-based Rate Limiting (Public Route)
+###############################################
+
+### Login without auth (should be IP-based)
+# @name login
+POST {{baseUrl}}/{{apiVersion}}/auth/login HTTP/1.1
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "Admin123!"
+}
+
+### Check rate limit headers from login response
+# Response headers should include:
+# X-RateLimit-Limit: 100
+# X-RateLimit-Remaining: 99
+# X-RateLimit-Reset: <timestamp>
+
+###############################################
+# 2. Test User-based Rate Limiting (Protected Route)
+###############################################
+
+### Get access token from login response
+@accessToken = {{login.response.body.accessToken}}
+
+### Get current user (authenticated - should be user-based)
+# @name getCurrentUser
+GET {{baseUrl}}/{{apiVersion}}/auth/me HTTP/1.1
+Authorization: Bearer {{accessToken}}
+
+### Check rate limit headers - should track per user
+# X-RateLimit-Limit: 100
+# X-RateLimit-Remaining: should decrement per user, not per IP
+
+###############################################
+# 3. Spam Test (Trigger Rate Limit)
+###############################################
+
+### Spam public endpoint (run this 100+ times quickly)
+# @loop 105
+POST {{baseUrl}}/{{apiVersion}}/auth/login HTTP/1.1
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "Admin123!"
+}
+
+### Expected result after 100 requests:
+# HTTP/1.1 429 Too Many Requests
+# {
+#   "statusCode": 429,
+#   "message": "ThrottlerException: Too Many Requests"
+# }
+
+###############################################
+# 4. Test Different Users (Different Rate Limits)
+###############################################
+
+### Login as admin
+# @name adminLogin
+POST {{baseUrl}}/{{apiVersion}}/auth/login HTTP/1.1
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "Admin123!"
+}
+
+@adminToken = {{adminLogin.response.body.accessToken}}
+
+### Login as regular user
+# @name userLogin
+POST {{baseUrl}}/{{apiVersion}}/auth/login HTTP/1.1
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "User123!"
+}
+
+@userToken = {{userLogin.response.body.accessToken}}
+
+### Request as admin (tracker: user:1)
+GET {{baseUrl}}/{{apiVersion}}/auth/me HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+### Request as user (tracker: user:2) - should have separate rate limit
+GET {{baseUrl}}/{{apiVersion}}/auth/me HTTP/1.1
+Authorization: Bearer {{userToken}}
+
+###############################################
+# 5. Test Proxy Headers (if behind proxy)
+###############################################
+
+### Test with X-Forwarded-For
+POST {{baseUrl}}/{{apiVersion}}/auth/login HTTP/1.1
+Content-Type: application/json
+X-Forwarded-For: 203.0.113.195
+
+{
+  "email": "admin@example.com",
+  "password": "Admin123!"
+}
+
+### Test with X-Real-IP
+POST {{baseUrl}}/{{apiVersion}}/auth/login HTTP/1.1
+Content-Type: application/json
+X-Real-IP: 203.0.113.196
+
+{
+  "email": "admin@example.com",
+  "password": "Admin123!"
+}

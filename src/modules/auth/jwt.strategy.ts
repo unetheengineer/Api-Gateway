@@ -1,17 +1,21 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { ConfigService } from '@nestjs/config';
 
-type JwtPayload = {
-  sub: string;
-  email?: string;
-  [key: string]: unknown;
-};
+export interface JwtPayload {
+  sub: string; // user ID
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  roles?: string[];
+  iat?: number;
+  exp?: number;
+}
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(configService: ConfigService) {
+  constructor(private configService: ConfigService) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -19,8 +23,31 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
+  /**
+   * Validates JWT payload and returns user object
+   * This method is called automatically by Passport after JWT verification
+   *
+   * When microservice is integrated, you can:
+   * 1. Make HTTP/RPC call to Core Service to validate user exists
+   * 2. Fetch additional user data from database
+   * 3. Check if user is active/blocked
+   */
   async validate(payload: JwtPayload) {
-    return { userId: payload.sub, email: payload.email, ...payload };
+    if (!payload.sub || !payload.email) {
+      throw new UnauthorizedException('Invalid token payload');
+    }
+
+    // 🔧 MOCK: Return user from JWT payload
+    // TODO: When integrating with microservice, replace with actual user lookup:
+    // const user = await this.httpService.get(`/users/${payload.sub}`);
+    // if (!user) throw new UnauthorizedException('User not found');
+
+    return {
+      userId: payload.sub,
+      email: payload.email,
+      firstName: payload.firstName,
+      lastName: payload.lastName,
+      roles: payload.roles || ['user'],
+    };
   }
 }
-export {};

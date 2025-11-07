@@ -1,0 +1,338 @@
+### Todos API Test File
+### Use REST Client extension in VS Code to run these tests
+
+@baseUrl = http://localhost:3000
+@apiVersion = v1
+
+###############################################
+# 0. Authentication Setup
+###############################################
+
+### Login as Admin
+# @name loginAdmin
+POST {{baseUrl}}/{{apiVersion}}/auth/login HTTP/1.1
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "Admin123!"
+}
+
+@adminToken = {{loginAdmin.response.body.accessToken}}
+
+### Login as Regular User
+# @name loginUser
+POST {{baseUrl}}/{{apiVersion}}/auth/login HTTP/1.1
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "User123!"
+}
+
+@userToken = {{loginUser.response.body.accessToken}}
+
+###############################################
+# 1. Create Todo
+###############################################
+
+### Create new todo (Admin)
+# @name createTodo
+POST {{baseUrl}}/{{apiVersion}}/todos HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "text": "Write integration tests for todos API"
+}
+
+@todoId = {{createTodo.response.body.id}}
+
+### Create another todo (Admin)
+POST {{baseUrl}}/{{apiVersion}}/todos HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "text": "Deploy to production"
+}
+
+### Create todo as regular user
+POST {{baseUrl}}/{{apiVersion}}/todos HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{userToken}}
+
+{
+  "text": "Review pull requests"
+}
+
+### Validation Test: Empty text (should fail)
+POST {{baseUrl}}/{{apiVersion}}/todos HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "text": ""
+}
+
+### Validation Test: Text too long (should fail)
+POST {{baseUrl}}/{{apiVersion}}/todos HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+}
+
+### Auth Test: No token (should fail)
+POST {{baseUrl}}/{{apiVersion}}/todos HTTP/1.1
+Content-Type: application/json
+
+{
+  "text": "This should fail"
+}
+
+###############################################
+# 2. Get All Todos
+###############################################
+
+### Get all todos (Admin - should see admin's todos only)
+GET {{baseUrl}}/{{apiVersion}}/todos HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+### Get all todos (User - should see user's todos only)
+GET {{baseUrl}}/{{apiVersion}}/todos HTTP/1.1
+Authorization: Bearer {{userToken}}
+
+### Get todos with pagination
+GET {{baseUrl}}/{{apiVersion}}/todos?page=1&limit=5 HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+### Get todos - Filter by status (pending)
+GET {{baseUrl}}/{{apiVersion}}/todos?status=pending HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+### Get todos - Filter by status (completed)
+GET {{baseUrl}}/{{apiVersion}}/todos?status=completed HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+### Get todos - Filter by status (in_progress)
+GET {{baseUrl}}/{{apiVersion}}/todos?status=in_progress HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+### Get todos - Sort by updatedAt ASC
+GET {{baseUrl}}/{{apiVersion}}/todos?sortBy=updatedAt&sortOrder=ASC HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+### Get todos - Sort by createdAt DESC (default)
+GET {{baseUrl}}/{{apiVersion}}/todos?sortBy=createdAt&sortOrder=DESC HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+### Get todos - Include deleted
+GET {{baseUrl}}/{{apiVersion}}/todos?includeDeleted=true HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+###############################################
+# 3. Get Single Todo
+###############################################
+
+### Get single todo by ID
+GET {{baseUrl}}/{{apiVersion}}/todos/{{todoId}} HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+### Get existing todo (ID from mock data)
+GET {{baseUrl}}/{{apiVersion}}/todos/1 HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+### Get non-existent todo (should fail)
+GET {{baseUrl}}/{{apiVersion}}/todos/999 HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+### Access control test: User tries to access admin's todo (should fail)
+GET {{baseUrl}}/{{apiVersion}}/todos/1 HTTP/1.1
+Authorization: Bearer {{userToken}}
+
+###############################################
+# 4. Update Todo
+###############################################
+
+### Update todo text
+PATCH {{baseUrl}}/{{apiVersion}}/todos/{{todoId}} HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "text": "Write integration tests for todos API - UPDATED"
+}
+
+### Update todo status to in_progress
+PATCH {{baseUrl}}/{{apiVersion}}/todos/{{todoId}} HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "status": "in_progress"
+}
+
+### Update todo status to completed
+PATCH {{baseUrl}}/{{apiVersion}}/todos/1 HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "status": "completed"
+}
+
+### Update both text and status
+PATCH {{baseUrl}}/{{apiVersion}}/todos/3 HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "text": "JWT authentication - Almost done!",
+  "status": "in_progress"
+}
+
+### Validation Test: Invalid status (should fail)
+PATCH {{baseUrl}}/{{apiVersion}}/todos/1 HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "status": "invalid_status"
+}
+
+### Access control test: User tries to update admin's todo (should fail)
+PATCH {{baseUrl}}/{{apiVersion}}/todos/1 HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{userToken}}
+
+{
+  "text": "This should fail"
+}
+
+###############################################
+# 5. Soft Delete Todo
+###############################################
+
+### Soft delete a todo
+DELETE {{baseUrl}}/{{apiVersion}}/todos/{{todoId}} HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+### Verify todo is deleted (should fail - not found)
+GET {{baseUrl}}/{{apiVersion}}/todos/{{todoId}} HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+### Delete existing mock todo
+DELETE {{baseUrl}}/{{apiVersion}}/todos/2 HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+### Access control test: User tries to delete admin's todo (should fail)
+DELETE {{baseUrl}}/{{apiVersion}}/todos/1 HTTP/1.1
+Authorization: Bearer {{userToken}}
+
+###############################################
+# 6. Get Deleted Todos
+###############################################
+
+### Get all deleted todos
+GET {{baseUrl}}/{{apiVersion}}/todos/deleted/list HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+### Get deleted todos (User - should see different list)
+GET {{baseUrl}}/{{apiVersion}}/todos/deleted/list HTTP/1.1
+Authorization: Bearer {{userToken}}
+
+###############################################
+# 7. Restore Deleted Todo
+###############################################
+
+### Restore a deleted todo
+POST {{baseUrl}}/{{apiVersion}}/todos/{{todoId}}/restore HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+### Verify todo is restored
+GET {{baseUrl}}/{{apiVersion}}/todos/{{todoId}} HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+### Restore mock deleted todo (ID: 5)
+POST {{baseUrl}}/{{apiVersion}}/todos/5/restore HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+### Try to restore non-deleted todo (should fail)
+POST {{baseUrl}}/{{apiVersion}}/todos/1/restore HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+###############################################
+# 8. Debug Endpoint (Development Only)
+###############################################
+
+### Get all mock todos (for debugging)
+GET {{baseUrl}}/{{apiVersion}}/todos/debug/all HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+###############################################
+# 9. Complete User Flow Test
+###############################################
+
+### Step 1: Create a todo
+# @name flowCreate
+POST {{baseUrl}}/{{apiVersion}}/todos HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "text": "Complete user flow test"
+}
+
+@flowTodoId = {{flowCreate.response.body.id}}
+
+### Step 2: Get the todo
+GET {{baseUrl}}/{{apiVersion}}/todos/{{flowTodoId}} HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+### Step 3: Update status to in_progress
+PATCH {{baseUrl}}/{{apiVersion}}/todos/{{flowTodoId}} HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "status": "in_progress"
+}
+
+### Step 4: Update status to completed
+PATCH {{baseUrl}}/{{apiVersion}}/todos/{{flowTodoId}} HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "status": "completed"
+}
+
+### Step 5: Soft delete
+DELETE {{baseUrl}}/{{apiVersion}}/todos/{{flowTodoId}} HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+### Step 6: Check deleted list
+GET {{baseUrl}}/{{apiVersion}}/todos/deleted/list HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+### Step 7: Restore
+POST {{baseUrl}}/{{apiVersion}}/todos/{{flowTodoId}}/restore HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+### Step 8: Verify restored
+GET {{baseUrl}}/{{apiVersion}}/todos/{{flowTodoId}} HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+###############################################
+# 10. Rate Limiting Test
+###############################################
+
+### Spam test - Run this multiple times quickly to trigger rate limit
+# @loop 105
+GET {{baseUrl}}/{{apiVersion}}/todos HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+### Expected result after 100 requests within 60 seconds:
+# HTTP/1.1 429 Too Many Requests

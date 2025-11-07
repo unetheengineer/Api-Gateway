@@ -6,7 +6,6 @@ import {
   HttpException,
   HttpStatus,
   Logger,
-  UseInterceptors,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { HttpService } from '@nestjs/axios';
@@ -14,12 +13,6 @@ import { ConfigService } from '@nestjs/config';
 import { firstValueFrom, timeout, catchError } from 'rxjs';
 import { CircuitBreakerService } from '../../common/sercvices/circuit-breaker.service';
 import { RabbitMQHealthIndicator } from './rabbitmq.health';
-import { HttpCacheInterceptor } from '../../common/interceptors/cache.interceptor';
-import {
-  CacheTTL,
-  CacheKey,
-  NoCache,
-} from '../../common/decorators/cache.decorator';
 
 @ApiTags('Health')
 @Controller('health')
@@ -238,52 +231,9 @@ export class HealthController {
   }
 
   // ============================================
-  // CACHE TEST ENDPOINTS
+  // CACHE TEST ENDPOINTS (Removed for clean template)
+  // To enable caching, add CacheModule to app.module.ts
   // ============================================
-
-  @Get('cache-test')
-  @UseInterceptors(HttpCacheInterceptor)
-  @ApiOperation({
-    summary: 'Basic cache test',
-    description: 'Test endpoint cached for 5 minutes',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Cached response',
-    schema: {
-      example: {
-        message: 'Cached for 5 minutes',
-        timestamp: '2025-10-18T12:00:00.000Z',
-        random: 0.123456,
-      },
-    },
-  })
-  getCacheTest() {
-    console.log('🔥 CACHE MISS - Generating fresh data...');
-    return {
-      message: 'This response is cached for 5 minutes',
-      timestamp: new Date().toISOString(),
-      random: Math.random(),
-    };
-  }
-
-  @Get('no-cache-test')
-  @ApiOperation({
-    summary: 'No cache test',
-    description: 'Test endpoint that is never cached',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Fresh response every time',
-  })
-  getNoCacheTest() {
-    console.log('🔥 NO CACHE - Always fresh data');
-    return {
-      message: 'This response is never cached',
-      timestamp: new Date().toISOString(),
-      random: Math.random(),
-    };
-  }
 
   @Get('rabbitmq')
   @ApiOperation({

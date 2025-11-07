@@ -101,34 +101,33 @@ async function bootstrap() {
 
   // Swagger Documentation
   const config = new DocumentBuilder()
-    .setTitle('API Gateway')
+    .setTitle('API Gateway - Clean Template')
     .setDescription(
-      'API Gateway for Microservices Architecture\n\n' +
-        '## Features\n' +
-        '- JWT Authentication\n' +
-        '- OAuth (Google & GitHub)\n' +
-        '- Rate Limiting\n' +
+      'Minimal API Gateway Template\n\n' +
+        '## Infrastructure\n' +
+        '- JWT Authentication (Mock)\n' +
+        '- Rate Limiting (per-user and per-IP)\n' +
         '- Request Validation\n' +
-        '- Response Compression\n' +
-        '- Request ID Tracking\n' +
+        '- Response Compression (Gzip)\n' +
+        '- Request ID Tracking (X-Request-ID)\n' +
         '- Health Checks\n' +
-        '- Centralized Error Handling\n\n' +
+        '- Centralized Error Handling\n' +
+        '- CORS Support\n' +
+        '- Soft Delete Support\n\n' +
+        '## Modules\n' +
+        '- **Authentication**: User auth and JWT token management (Mock)\n' +
+        '- **Todos**: Todo management with soft delete (Mock)\n\n' +
+        '## Usage\n' +
+        'This is a clean template API Gateway. Mock modules will be replaced with microservice calls.\n\n' +
         '## Base URL\n' +
         `- Development: http://localhost:${process.env.PORT || 3000}\n` +
         '- Production: https://api.yourdomain.com',
     )
     .setVersion('1.0.0')
-    .addBearerAuth({
-      type: 'http',
-      scheme: 'bearer',
-      bearerFormat: 'JWT',
-      name: 'Authorization',
-      description: 'Enter your JWT token (without "Bearer" prefix)',
-      in: 'header',
-    })
-    .addTag('Authentication', 'User authentication and authorization')
-    .addTag('Users', 'User management operations')
-    .addTag('Health', 'Health check endpoints for monitoring')
+    .addTag('Authentication', 'User authentication and JWT token management')
+    .addTag('Todos', 'Todo management with CRUD operations and soft delete')
+    .addTag('Health', 'Service health checks')
+    .addBearerAuth()
     .addServer(`http://localhost:${process.env.PORT || 3000}`, 'Development')
     .addServer('https://api.yourdomain.com', 'Production')
     .build();
