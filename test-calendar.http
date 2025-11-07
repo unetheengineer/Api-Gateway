@@ -1,0 +1,303 @@
+### API Gateway - Calendar Module Tests
+### 🔧 MOCK Implementation - All data stored in-memory
+
+@baseUrl = http://localhost:3000
+@version = v1
+
+### Variables
+@accessToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+@eventId = event-id-here
+
+###############################################################################
+### 1. Authentication (Get Token First)
+###############################################################################
+
+### 1.1 Login to get access token
+POST {{baseUrl}}/{{version}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "Admin123!"
+}
+
+###############################################################################
+### 2. Create Events
+###############################################################################
+
+### 2.1 Create simple one-time event
+POST {{baseUrl}}/{{version}}/calendar/events
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "title": "Team Meeting",
+  "description": "Discuss Q1 goals",
+  "location": "Conference Room A",
+  "startTime": "2024-01-15T14:00:00.000Z",
+  "endTime": "2024-01-15T15:00:00.000Z",
+  "category": "meeting",
+  "color": "#3B82F6",
+  "reminders": [
+    {
+      "value": 15,
+      "unit": "minutes",
+      "message": "Meeting starts soon"
+    }
+  ]
+}
+
+### 2.2 Create all-day event
+POST {{baseUrl}}/{{version}}/calendar/events
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "title": "Company Holiday",
+  "description": "New Year's Day",
+  "startTime": "2024-01-01T00:00:00.000Z",
+  "endTime": "2024-01-01T23:59:59.999Z",
+  "isAllDay": true,
+  "category": "holiday",
+  "color": "#10B981"
+}
+
+### 2.3 Create recurring event (daily weekday standup)
+POST {{baseUrl}}/{{version}}/calendar/events
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "title": "Daily Standup",
+  "description": "Team sync meeting",
+  "location": "Zoom",
+  "startTime": "2024-01-15T09:00:00.000Z",
+  "endTime": "2024-01-15T09:30:00.000Z",
+  "category": "meeting",
+  "color": "#8B5CF6",
+  "recurrenceRule": {
+    "frequency": "daily",
+    "interval": 1,
+    "daysOfWeek": [1, 2, 3, 4, 5]
+  },
+  "reminders": [
+    {
+      "value": 5,
+      "unit": "minutes"
+    }
+  ]
+}
+
+### 2.4 Create event with Todo link
+POST {{baseUrl}}/{{version}}/calendar/events
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "title": "Complete API Gateway Documentation",
+  "description": "Write comprehensive docs",
+  "startTime": "2024-01-20T10:00:00.000Z",
+  "endTime": "2024-01-20T12:00:00.000Z",
+  "category": "work",
+  "linkedTodoId": "1"
+}
+
+### 2.5 Create deadline event
+POST {{baseUrl}}/{{version}}/calendar/events
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "title": "Project Deadline: API Gateway v1.0",
+  "description": "Final release deadline",
+  "startTime": "2024-02-01T00:00:00.000Z",
+  "endTime": "2024-02-01T23:59:59.999Z",
+  "isAllDay": true,
+  "category": "deadline",
+  "color": "#EF4444",
+  "reminders": [
+    {
+      "value": 1,
+      "unit": "days",
+      "message": "Deadline tomorrow!"
+    },
+    {
+      "value": 1,
+      "unit": "hours",
+      "message": "Deadline in 1 hour!"
+    }
+  ]
+}
+
+###############################################################################
+### 3. Get Events
+###############################################################################
+
+### 3.1 Get all events (paginated)
+GET {{baseUrl}}/{{version}}/calendar/events?page=1&limit=10
+Authorization: Bearer {{accessToken}}
+
+### 3.2 Get events by category
+GET {{baseUrl}}/{{version}}/calendar/events?category=meeting&page=1&limit=10
+Authorization: Bearer {{accessToken}}
+
+### 3.3 Get events by date range
+GET {{baseUrl}}/{{version}}/calendar/events?startDate=2024-01-01T00:00:00.000Z&endDate=2024-12-31T23:59:59.999Z
+Authorization: Bearer {{accessToken}}
+
+### 3.4 Get only recurring events
+GET {{baseUrl}}/{{version}}/calendar/events?recurringOnly=true
+Authorization: Bearer {{accessToken}}
+
+### 3.5 Get single event by ID
+GET {{baseUrl}}/{{version}}/calendar/events/{{eventId}}
+Authorization: Bearer {{accessToken}}
+
+###############################################################################
+### 4. Calendar Views
+###############################################################################
+
+### 4.1 Get month view (January 2024)
+GET {{baseUrl}}/{{version}}/calendar/month/2024/1
+Authorization: Bearer {{accessToken}}
+
+### 4.2 Get month view (February 2024)
+GET {{baseUrl}}/{{version}}/calendar/month/2024/2
+Authorization: Bearer {{accessToken}}
+
+### 4.3 Get day view
+GET {{baseUrl}}/{{version}}/calendar/day/2024-01-15
+Authorization: Bearer {{accessToken}}
+
+###############################################################################
+### 5. Update Events
+###############################################################################
+
+### 5.1 Update event title and time
+PATCH {{baseUrl}}/{{version}}/calendar/events/{{eventId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "title": "Team Meeting - Updated",
+  "startTime": "2024-01-15T15:00:00.000Z",
+  "endTime": "2024-01-15T16:00:00.000Z"
+}
+
+### 5.2 Update event category and color
+PATCH {{baseUrl}}/{{version}}/calendar/events/{{eventId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "category": "work",
+  "color": "#F59E0B"
+}
+
+### 5.3 Add reminders to existing event
+PATCH {{baseUrl}}/{{version}}/calendar/events/{{eventId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "reminders": [
+    {
+      "value": 30,
+      "unit": "minutes",
+      "message": "Event starts in 30 minutes"
+    },
+    {
+      "value": 1,
+      "unit": "hours",
+      "message": "Event starts in 1 hour"
+    }
+  ]
+}
+
+###############################################################################
+### 6. Delete and Restore
+###############################################################################
+
+### 6.1 Soft delete event
+DELETE {{baseUrl}}/{{version}}/calendar/events/{{eventId}}
+Authorization: Bearer {{accessToken}}
+
+### 6.2 Get events including deleted
+GET {{baseUrl}}/{{version}}/calendar/events?includeDeleted=true
+Authorization: Bearer {{accessToken}}
+
+### 6.3 Restore deleted event
+POST {{baseUrl}}/{{version}}/calendar/events/{{eventId}}/restore
+Authorization: Bearer {{accessToken}}
+
+###############################################################################
+### 7. Error Cases
+###############################################################################
+
+### 7.1 Try to create event without authentication
+POST {{baseUrl}}/{{version}}/calendar/events
+Content-Type: application/json
+
+{
+  "title": "Test Event",
+  "startTime": "2024-01-15T10:00:00.000Z",
+  "endTime": "2024-01-15T11:00:00.000Z"
+}
+
+### 7.2 Try to create event with end time before start time
+POST {{baseUrl}}/{{version}}/calendar/events
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "title": "Invalid Event",
+  "startTime": "2024-01-15T11:00:00.000Z",
+  "endTime": "2024-01-15T10:00:00.000Z"
+}
+
+### 7.3 Try to get non-existent event
+GET {{baseUrl}}/{{version}}/calendar/events/invalid-id
+Authorization: Bearer {{accessToken}}
+
+###############################################################################
+### 8. Integration Tests
+###############################################################################
+
+### 8.1 Get todos to link with events
+GET {{baseUrl}}/{{version}}/todos
+Authorization: Bearer {{accessToken}}
+
+### 8.2 Create calendar event linked to todo
+POST {{baseUrl}}/{{version}}/calendar/events
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "title": "Work on: Add JWT authentication",
+  "description": "Scheduled time to complete this todo",
+  "startTime": "2024-01-16T14:00:00.000Z",
+  "endTime": "2024-01-16T16:00:00.000Z",
+  "category": "work",
+  "linkedTodoId": "3"
+}
+
+### 8.3 Start pomodoro for calendar event
+# First get the calendar event, then create a pomodoro session
+POST {{baseUrl}}/{{version}}/pomodoro/start
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "type": "work",
+  "notes": "Working on calendar event: Team Meeting"
+}
+
+###############################################################################
+### Notes:
+### - Replace {{accessToken}} with actual token from login response
+### - Replace {{eventId}} with actual event ID from create response
+### - All data is stored in-memory (resets on server restart)
+### - Recurring events: frequency can be daily, weekly, monthly, yearly
+### - Reminder units: minutes, hours, days
+### - Event categories: work, personal, meeting, deadline, appointment, birthday, holiday, other
+###############################################################################
