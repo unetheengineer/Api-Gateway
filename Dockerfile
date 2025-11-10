@@ -9,7 +9,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install all dependencies (including devDependencies for build)
-RUN npm ci
+RUN npm ci --include=dev
 
 # Copy source
 COPY . .
@@ -17,8 +17,8 @@ COPY . .
 # Build NestJS
 RUN npm run build
 
-# Install production dependencies only
-RUN npm ci --only=production
+# Now remove node_modules and reinstall production dependencies only
+RUN rm -rf node_modules && npm ci --omit=dev
 
 # Stage 2: Runtime
 FROM node:20-alpine
