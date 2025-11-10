@@ -4,16 +4,11 @@ import { ConfigModule } from '@nestjs/config';
 import { HealthController } from './health.controller';
 import { CircuitBreakerService } from '../../common/sercvices/circuit-breaker.service';
 import { CoreServiceHealthIndicator } from './core-service.health';
-import { RabbitMQHealthIndicator } from './rabbitmq.health';
 
 @Module({
   imports: [HttpModule, ConfigModule],
   controllers: [HealthController],
-  providers: [
-    CircuitBreakerService,
-    CoreServiceHealthIndicator,
-    RabbitMQHealthIndicator,
-  ],
-  exports: [CoreServiceHealthIndicator, RabbitMQHealthIndicator],
+  providers: [CircuitBreakerService, CoreServiceHealthIndicator],
+  exports: [CoreServiceHealthIndicator],
 })
 export class HealthModule {}

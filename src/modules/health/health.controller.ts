@@ -12,7 +12,6 @@ import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom, timeout, catchError } from 'rxjs';
 import { CircuitBreakerService } from '../../common/sercvices/circuit-breaker.service';
-import { RabbitMQHealthIndicator } from './rabbitmq.health';
 
 @ApiTags('Health')
 @Controller('health')
@@ -24,7 +23,6 @@ export class HealthController {
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
     private readonly circuitBreakerService: CircuitBreakerService,
-    private readonly rabbitmqHealthIndicator: RabbitMQHealthIndicator,
   ) {
     this.coreServiceUrl =
       this.configService.get<string>('CORE_SERVICE_URL') ??
@@ -79,12 +77,8 @@ export class HealthController {
   async healthCheck() {
     const startTime = Date.now();
 
-    // Core Service health check
-    const coreServiceHealth = await this.checkCoreService();
-    const coreServiceResponseTime = Date.now() - startTime;
-
-    const healthStatus = {
-      status: coreServiceHealth.status === 'healthy' ? 'ok' : 'degraded',
+    const healthStatus: any = {
+      status: 'ok',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       environment: process.env.NODE_ENV || 'development',
@@ -94,18 +88,26 @@ export class HealthController {
           version: '1.0.0',
           port: process.env.PORT || 3000,
         },
-        coreService: {
-          ...coreServiceHealth,
-          url: this.coreServiceUrl,
-          responseTime: coreServiceResponseTime,
-        },
       },
     };
 
-    // If core service is down, return 503
-    if (coreServiceHealth.status === 'unhealthy') {
-      this.logger.warn('Health check failed: Core Service is unhealthy');
-      throw new HttpException(healthStatus, HttpStatus.SERVICE_UNAVAILABLE);
+    // Core Service health check (optional - only if CORE_SERVICE_URL is set)
+    if (this.coreServiceUrl) {
+      const coreServiceHealth = await this.checkCoreService();
+      const coreServiceResponseTime = Date.now() - startTime;
+
+      healthStatus.services.coreService = {
+        ...coreServiceHealth,
+        url: this.coreServiceUrl,
+        responseTime: coreServiceResponseTime,
+      };
+
+      // If core service is down, return 503
+      if (coreServiceHealth.status === 'unhealthy') {
+        healthStatus.status = 'degraded';
+        this.logger.warn('Health check failed: Core Service is unhealthy');
+        throw new HttpException(healthStatus, HttpStatus.SERVICE_UNAVAILABLE);
+      }
     }
 
     return healthStatus;
@@ -120,13 +122,16 @@ export class HealthController {
   @ApiResponse({ status: 200, description: 'Service is ready' })
   @ApiResponse({ status: 503, description: 'Service is not ready' })
   async readinessCheck() {
-    const coreServiceHealth = await this.checkCoreService();
+    // Only check core service if URL is configured
+    if (this.coreServiceUrl) {
+      const coreServiceHealth = await this.checkCoreService();
 
-    if (coreServiceHealth.status === 'unhealthy') {
-      throw new HttpException(
-        'Service not ready',
-        HttpStatus.SERVICE_UNAVAILABLE,
-      );
+      if (coreServiceHealth.status === 'unhealthy') {
+        throw new HttpException(
+          'Service not ready',
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
+      }
     }
 
     return {
@@ -234,34 +239,6 @@ export class HealthController {
   // CACHE TEST ENDPOINTS (Removed for clean template)
   // To enable caching, add CacheModule to app.module.ts
   // ============================================
-
-  @Get('rabbitmq')
-  @ApiOperation({
-    summary: 'RabbitMQ health check',
-    description: 'Check RabbitMQ connection status',
-  })
-  @ApiResponse({ status: 200, description: 'RabbitMQ is healthy' })
-  @ApiResponse({ status: 503, description: 'RabbitMQ is unhealthy' })
-  async rabbitmqHealthCheck() {
-    try {
-      const result = await this.rabbitmqHealthIndicator.isHealthy('rabbitmq');
-      return {
-        status: 'ok',
-        timestamp: new Date().toISOString(),
-        rabbitmq: result,
-      };
-    } catch (error: any) {
-      this.logger.error('RabbitMQ health check failed:', error);
-      throw new HttpException(
-        {
-          status: 'error',
-          timestamp: new Date().toISOString(),
-          message: error.message || 'RabbitMQ health check failed',
-        },
-        HttpStatus.SERVICE_UNAVAILABLE,
-      );
-    }
-  }
 
   // ============================================
   // PRIVATE METHODS
