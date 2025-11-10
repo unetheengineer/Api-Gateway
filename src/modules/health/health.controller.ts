@@ -6,6 +6,7 @@ import {
   HttpException,
   HttpStatus,
   Logger,
+  VERSION_NEUTRAL,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { HttpService } from '@nestjs/axios';
@@ -14,7 +15,7 @@ import { firstValueFrom, timeout, catchError } from 'rxjs';
 import { CircuitBreakerService } from '../../common/sercvices/circuit-breaker.service';
 
 @ApiTags('Health')
-@Controller('health')
+@Controller({ path: 'health', version: VERSION_NEUTRAL })
 export class HealthController {
   private readonly logger = new Logger(HealthController.name);
   private readonly coreServiceUrl: string;
