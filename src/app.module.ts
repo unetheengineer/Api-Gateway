@@ -5,7 +5,6 @@ import { envValidationSchema } from './config/env.validation';
 import { httpConfig } from './config/http.config';
 import { APP_GUARD } from '@nestjs/core';
 import { HealthModule } from './modules/health/health.module';
-import { MessagingModule } from './modules/messaging/messaging.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { TodosModule } from './modules/todos/todos.module';
 import { PomodoroModule } from './modules/pomodoro/pomodoro.module';
@@ -52,9 +51,6 @@ import { ThrottlerBehindProxyGuard } from './common/guards/throttler-behind-prox
 
     // ✅ KEEP: Health Check
     HealthModule,
-
-    // ✅ KEEP: Messaging/RabbitMQ (for template use)
-    MessagingModule,
 
     // ✅ KEEP: Authentication (JWT)
     AuthModule,

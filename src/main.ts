@@ -129,11 +129,11 @@ async function bootstrap() {
     .addTag('Health', 'Service health checks')
     .addBearerAuth()
     .addServer(`http://localhost:${process.env.PORT || 3000}`, 'Development')
-    .addServer('https://api.yourdomain.com', 'Production')
+    .addServer('https://mirkapi.unelias.site', 'Production')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document, {
+  SwaggerModule.setup('/', app, document, {
     customSiteTitle: 'API Gateway Documentation',
     customfavIcon: 'https://nestjs.com/img/logo-small.svg',
     customCss: '.swagger-ui .topbar { display: none }',
@@ -165,7 +165,7 @@ async function bootstrap() {
 ║  🚀 API Gateway Started                                   ║
 ║  📝 Environment: ${env.padEnd(42)}║
 ║  🌐 Server: http://localhost:${port.toString().padEnd(32)}║
-║  📚 Swagger Docs: http://localhost:${port}/api/docs${' '.repeat(18)}║
+║  📚 Swagger Docs: http://localhost:${port}${' '.repeat(27)}║
 ║  🛡️  Rate Limiting: ${process.env.THROTTLE_ENABLED === 'true' ? 'ENABLED' : 'DISABLED'}${' '.repeat(33)}║
 ${process.env.THROTTLE_ENABLED === 'true' ? `║     └─ ${process.env.THROTTLE_LIMIT || '100'} requests / ${process.env.THROTTLE_TTL || '60'}s${' '.repeat(26)}║` : ''}
 ║  🗜️  Compression: ENABLED (Gzip, threshold: 1KB)${' '.repeat(10)}║

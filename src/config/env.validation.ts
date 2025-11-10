@@ -14,10 +14,9 @@ export const envValidationSchema = Joi.object({
 
   CORE_SERVICE_URL: Joi.string()
     .uri({ scheme: ['http', 'https'] })
-    .required()
+    .optional()
     .messages({
       'string.uri': 'CORE_SERVICE_URL must be a valid HTTP/HTTPS URL',
-      'any.required': 'CORE_SERVICE_URL is required',
     }),
 
   JWT_SECRET: Joi.string().min(32).required().messages({
@@ -60,36 +59,4 @@ export const envValidationSchema = Joi.object({
     .messages({
       'any.only': 'LOG_LEVEL must be one of: debug, log, warn, error, verbose',
     }),
-
-  RABBITMQ_URL: Joi.string().uri().default('amqp://localhost:5672').messages({
-    'string.uri': 'RABBITMQ_URL must be a valid URL',
-  }),
-
-  RABBITMQ_QUEUE: Joi.string().default('api-gateway').messages({
-    'string.base': 'RABBITMQ_QUEUE must be a string',
-  }),
-
-  RABBITMQ_PREFETCH: Joi.number()
-    .integer()
-    .min(1)
-    .max(100)
-    .default(10)
-    .messages({
-      'number.min': 'RABBITMQ_PREFETCH must be at least 1',
-      'number.max': 'RABBITMQ_PREFETCH must be at most 100',
-    }),
-
-  RABBITMQ_RETRY_ATTEMPTS: Joi.number()
-    .integer()
-    .min(0)
-    .max(10)
-    .default(3)
-    .messages({
-      'number.min': 'RABBITMQ_RETRY_ATTEMPTS must be at least 0',
-      'number.max': 'RABBITMQ_RETRY_ATTEMPTS must be at most 10',
-    }),
-
-  RABBITMQ_RETRY_DELAY: Joi.number().integer().min(100).default(1000).messages({
-    'number.min': 'RABBITMQ_RETRY_DELAY must be at least 100ms',
-  }),
 });
