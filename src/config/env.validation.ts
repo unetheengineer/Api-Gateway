@@ -24,8 +24,8 @@ export const envValidationSchema = Joi.object({
     'any.required': 'JWT_SECRET is required',
   }),
 
-  JWT_EXPIRATION: Joi.string().default('24h').messages({
-    'string.base': 'JWT_EXPIRATION must be a string (e.g., "24h", "7d")',
+  JWT_EXPIRES_IN: Joi.string().default('15m').messages({
+    'string.base': 'JWT_EXPIRES_IN must be a string (e.g., "15m", "24h", "7d")',
   }),
 
   CORS_ORIGIN: Joi.string()
