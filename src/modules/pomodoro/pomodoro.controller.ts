@@ -79,7 +79,7 @@ export class PomodoroController {
     description: 'Conflict - User already has an active session',
   })
   async startSession(@Body() dto: StartSessionDto, @Req() req: Request) {
-    const user = req.user as any;
+    const user = req.user!;
     return this.pomodoroService.startSession(dto, user.userId);
   }
 
@@ -102,7 +102,7 @@ export class PomodoroController {
     description: 'Unauthorized',
   })
   async getCurrentSession(@Req() req: Request) {
-    const user = req.user as any;
+    const user = req.user!;
     return this.pomodoroService.getCurrentSession(user.userId);
   }
 
@@ -137,7 +137,7 @@ export class PomodoroController {
     description: 'Session not found',
   })
   async pauseSession(@Param('id') id: string, @Req() req: Request) {
-    const user = req.user as any;
+    const user = req.user!;
     return this.pomodoroService.pauseSession(id, user.userId);
   }
 
@@ -172,7 +172,7 @@ export class PomodoroController {
     description: 'Session not found',
   })
   async resumeSession(@Param('id') id: string, @Req() req: Request) {
-    const user = req.user as any;
+    const user = req.user!;
     return this.pomodoroService.resumeSession(id, user.userId);
   }
 
@@ -207,7 +207,7 @@ export class PomodoroController {
     description: 'Session not found',
   })
   async completeSession(@Param('id') id: string, @Req() req: Request) {
-    const user = req.user as any;
+    const user = req.user!;
     return this.pomodoroService.completeSession(id, user.userId);
   }
 
@@ -247,7 +247,7 @@ export class PomodoroController {
     description: 'Session not found',
   })
   async cancelSession(@Param('id') id: string, @Req() req: Request) {
-    const user = req.user as any;
+    const user = req.user!;
     return this.pomodoroService.cancelSession(id, user.userId);
   }
 
@@ -293,7 +293,7 @@ export class PomodoroController {
     description: 'Unauthorized',
   })
   async getHistory(@Query() queryDto: QuerySessionsDto, @Req() req: Request) {
-    const user = req.user as any;
+    const user = req.user!;
     return this.pomodoroService.getHistory(queryDto, user.userId);
   }
 
@@ -328,7 +328,7 @@ export class PomodoroController {
     description: 'Unauthorized',
   })
   async getStatistics(@Req() req: Request) {
-    const user = req.user as any;
+    const user = req.user!;
     return this.pomodoroService.getStatistics(user.userId);
   }
 
@@ -362,7 +362,7 @@ export class PomodoroController {
     description: 'Unauthorized',
   })
   async getConfig(@Req() req: Request) {
-    const user = req.user as any;
+    const user = req.user!;
     return this.pomodoroService.getConfig(user.userId);
   }
 
@@ -387,7 +387,7 @@ export class PomodoroController {
     description: 'Unauthorized',
   })
   async updateConfig(@Body() dto: UpdateConfigDto, @Req() req: Request) {
-    const user = req.user as any;
+    const user = req.user!;
     return this.pomodoroService.updateConfig(dto, user.userId);
   }
 }

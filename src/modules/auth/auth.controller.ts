@@ -193,7 +193,7 @@ export class AuthController {
     description: 'Unauthorized - Invalid or missing token',
   })
   async logout(@Req() req: Request) {
-    const user = req.user as any;
+    const user = req.user!;
     return this.authService.logout(user.userId);
   }
 

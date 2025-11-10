@@ -1,15 +1,15 @@
 # Multi-stage build - optimize container size
 
 # Stage 1: Builder
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install all dependencies (including devDependencies for build)
+RUN npm ci
 
 # Copy source
 COPY . .
@@ -17,8 +17,11 @@ COPY . .
 # Build NestJS
 RUN npm run build
 
+# Install production dependencies only
+RUN npm ci --only=production
+
 # Stage 2: Runtime
-FROM node:18-alpine
+FROM node:20-alpine
 
 WORKDIR /app
 

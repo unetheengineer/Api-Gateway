@@ -1,6 +1,6 @@
 import { Injectable, ExecutionContext } from '@nestjs/common';
 import { ThrottlerGuard } from '@nestjs/throttler';
-import { Request } from 'express';
+import type { Request } from 'express';
 
 /**
  * Custom Throttler Guard that works behind proxies and supports user-based rate limiting
@@ -16,7 +16,7 @@ export class ThrottlerBehindProxyGuard extends ThrottlerGuard {
   protected async getTracker(req: Request): Promise<string> {
     // 1. Önce authenticated user'ı kontrol et (JWT guard'dan sonra set ediliyor)
     // Authenticated route'larda req.user mevcut olacak
-    const user = (req as any).user;
+    const user = req.user;
     if (user && user.userId) {
       return `user:${user.userId}`;
     }

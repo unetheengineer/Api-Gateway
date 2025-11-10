@@ -19,3 +19,6 @@ test
 spec
 docker-compose*.yml
 scripts
+memory-bank
+CHANGELOG.md
+*.http

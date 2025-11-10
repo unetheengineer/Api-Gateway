@@ -68,7 +68,7 @@ export class TodosController {
     description: 'Unauthorized - Invalid or missing token',
   })
   async create(@Body() createTodoDto: CreateTodoDto, @Req() req: Request) {
-    const user = req.user as any;
+    const user = req.user!;
     return this.todosService.create(createTodoDto, user.userId);
   }
 
@@ -122,7 +122,7 @@ export class TodosController {
     description: 'Unauthorized - Invalid or missing token',
   })
   async findAll(@Query() queryDto: QueryTodosDto, @Req() req: Request) {
-    const user = req.user as any;
+    const user = req.user!;
     return this.todosService.findAll(queryDto, user.userId);
   }
 
@@ -165,7 +165,7 @@ export class TodosController {
     description: 'Todo not found',
   })
   async findOne(@Param('id') id: string, @Req() req: Request) {
-    const user = req.user as any;
+    const user = req.user!;
     return this.todosService.findOne(id, user.userId);
   }
 
@@ -216,7 +216,7 @@ export class TodosController {
     @Body() updateTodoDto: UpdateTodoDto,
     @Req() req: Request,
   ) {
-    const user = req.user as any;
+    const user = req.user!;
     return this.todosService.update(id, updateTodoDto, user.userId);
   }
 
@@ -255,7 +255,7 @@ export class TodosController {
     description: 'Todo not found',
   })
   async remove(@Param('id') id: string, @Req() req: Request) {
-    const user = req.user as any;
+    const user = req.user!;
     return this.todosService.softDelete(id, user.userId);
   }
 
@@ -299,7 +299,7 @@ export class TodosController {
     description: 'Todo not found or not deleted',
   })
   async restore(@Param('id') id: string, @Req() req: Request) {
-    const user = req.user as any;
+    const user = req.user!;
     return this.todosService.restore(id, user.userId);
   }
 
@@ -331,7 +331,7 @@ export class TodosController {
     },
   })
   async findDeleted(@Req() req: Request) {
-    const user = req.user as any;
+    const user = req.user!;
     return this.todosService.findDeleted(user.userId);
   }
 

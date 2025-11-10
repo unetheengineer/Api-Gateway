@@ -10,6 +10,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { TodosModule } from './modules/todos/todos.module';
 import { PomodoroModule } from './modules/pomodoro/pomodoro.module';
 import { CalendarModule } from './modules/calendar/calendar.module';
+import { HabitsModule } from './modules/habits/habits.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { ThrottlerBehindProxyGuard } from './common/guards/throttler-behind-proxy.guard';
@@ -66,6 +67,9 @@ import { ThrottlerBehindProxyGuard } from './common/guards/throttler-behind-prox
 
     // ✅ KEEP: Calendar Module (Mock - will be microservice)
     CalendarModule,
+
+    // ✅ KEEP: Habits Module (Mock - will be microservice)
+    HabitsModule,
 
     // ❌ REMOVED:
     // - UsersModule

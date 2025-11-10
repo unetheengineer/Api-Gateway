@@ -57,7 +57,7 @@ export class CalendarController {
     description: 'Unauthorized',
   })
   async create(@Body() dto: CreateEventDto, @Req() req: Request) {
-    const user = req.user as any;
+    const user = req.user!;
     return this.calendarService.create(dto, user.userId);
   }
 
@@ -80,7 +80,7 @@ export class CalendarController {
     description: 'Unauthorized',
   })
   async findAll(@Query() queryDto: QueryEventsDto, @Req() req: Request) {
-    const user = req.user as any;
+    const user = req.user!;
     return this.calendarService.findAll(queryDto, user.userId);
   }
 
@@ -105,7 +105,7 @@ export class CalendarController {
     description: 'Event not found',
   })
   async findOne(@Param('id') id: string, @Req() req: Request) {
-    const user = req.user as any;
+    const user = req.user!;
     return this.calendarService.findOne(id, user.userId);
   }
 
@@ -138,7 +138,7 @@ export class CalendarController {
     @Body() dto: UpdateEventDto,
     @Req() req: Request,
   ) {
-    const user = req.user as any;
+    const user = req.user!;
     return this.calendarService.update(id, dto, user.userId);
   }
 
@@ -164,7 +164,7 @@ export class CalendarController {
     description: 'Event not found',
   })
   async remove(@Param('id') id: string, @Req() req: Request) {
-    const user = req.user as any;
+    const user = req.user!;
     return this.calendarService.softDelete(id, user.userId);
   }
 
@@ -190,7 +190,7 @@ export class CalendarController {
     description: 'Event not found or not deleted',
   })
   async restore(@Param('id') id: string, @Req() req: Request) {
-    const user = req.user as any;
+    const user = req.user!;
     return this.calendarService.restore(id, user.userId);
   }
 
@@ -221,7 +221,7 @@ export class CalendarController {
     @Param('month', ParseIntPipe) month: number,
     @Req() req: Request,
   ) {
-    const user = req.user as any;
+    const user = req.user!;
     return this.calendarService.getMonthView(year, month, user.userId);
   }
 
@@ -243,7 +243,7 @@ export class CalendarController {
     description: 'Day events retrieved successfully',
   })
   async getDayView(@Param('date') date: string, @Req() req: Request) {
-    const user = req.user as any;
+    const user = req.user!;
     return this.calendarService.getDayView(date, user.userId);
   }
 }
