@@ -3,37 +3,23 @@ import {
   Get,
   Post,
   Param,
-  HttpException,
-  HttpStatus,
   Logger,
   VERSION_NEUTRAL,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { HttpService } from '@nestjs/axios';
-import { ConfigService } from '@nestjs/config';
-import { firstValueFrom, timeout, catchError } from 'rxjs';
 import { CircuitBreakerService } from '../../common/sercvices/circuit-breaker.service';
 
 @ApiTags('Health')
 @Controller({ path: 'health', version: VERSION_NEUTRAL })
 export class HealthController {
   private readonly logger = new Logger(HealthController.name);
-  private readonly coreServiceUrl: string;
 
-  constructor(
-    private readonly httpService: HttpService,
-    private readonly configService: ConfigService,
-    private readonly circuitBreakerService: CircuitBreakerService,
-  ) {
-    this.coreServiceUrl =
-      this.configService.get<string>('CORE_SERVICE_URL') ??
-      'http://localhost:3001';
-  }
+  constructor(private readonly circuitBreakerService: CircuitBreakerService) {}
 
   @Get()
   @ApiOperation({
     summary: 'Health check',
-    description: 'Check API Gateway and Core Service health status',
+    description: 'Check API Gateway health status',
   })
   @ApiResponse({
     status: 200,
@@ -43,75 +29,21 @@ export class HealthController {
         status: 'ok',
         timestamp: '2025-10-18T12:00:00.000Z',
         uptime: 3600.5,
-        environment: 'development',
-        services: {
-          apiGateway: {
-            status: 'healthy',
-            version: '1.0.0',
-            port: 3000,
-          },
-          coreService: {
-            status: 'healthy',
-            url: 'http://localhost:3001',
-            responseTime: 45,
-          },
-        },
-      },
-    },
-  })
-  @ApiResponse({
-    status: 503,
-    description: 'Service is unhealthy',
-    schema: {
-      example: {
-        status: 'error',
-        timestamp: '2025-10-18T12:00:00.000Z',
-        services: {
-          coreService: {
-            status: 'unhealthy',
-            error: 'Connection timeout',
-          },
-        },
+        environment: 'production',
+        version: '1.0.0',
+        port: 3000,
       },
     },
   })
   async healthCheck() {
-    const startTime = Date.now();
-
-    const healthStatus: any = {
+    return {
       status: 'ok',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       environment: process.env.NODE_ENV || 'development',
-      services: {
-        apiGateway: {
-          status: 'healthy',
-          version: '1.0.0',
-          port: process.env.PORT || 3000,
-        },
-      },
+      version: '1.0.0',
+      port: process.env.PORT || 3000,
     };
-
-    // Core Service health check (optional - only if CORE_SERVICE_URL is set)
-    if (this.coreServiceUrl) {
-      const coreServiceHealth = await this.checkCoreService();
-      const coreServiceResponseTime = Date.now() - startTime;
-
-      healthStatus.services.coreService = {
-        ...coreServiceHealth,
-        url: this.coreServiceUrl,
-        responseTime: coreServiceResponseTime,
-      };
-
-      // If core service is down, return 503
-      if (coreServiceHealth.status === 'unhealthy') {
-        healthStatus.status = 'degraded';
-        this.logger.warn('Health check failed: Core Service is unhealthy');
-        throw new HttpException(healthStatus, HttpStatus.SERVICE_UNAVAILABLE);
-      }
-    }
-
-    return healthStatus;
   }
 
   @Get('ready')
@@ -121,20 +53,7 @@ export class HealthController {
       'Check if service is ready to accept traffic (Kubernetes readiness probe)',
   })
   @ApiResponse({ status: 200, description: 'Service is ready' })
-  @ApiResponse({ status: 503, description: 'Service is not ready' })
   async readinessCheck() {
-    // Only check core service if URL is configured
-    if (this.coreServiceUrl) {
-      const coreServiceHealth = await this.checkCoreService();
-
-      if (coreServiceHealth.status === 'unhealthy') {
-        throw new HttpException(
-          'Service not ready',
-          HttpStatus.SERVICE_UNAVAILABLE,
-        );
-      }
-    }
-
     return {
       status: 'ready',
       timestamp: new Date().toISOString(),
@@ -241,30 +160,4 @@ export class HealthController {
   // To enable caching, add CacheModule to app.module.ts
   // ============================================
 
-  // ============================================
-  // PRIVATE METHODS
-  // ============================================
-
-  private async checkCoreService(): Promise<{
-    status: string;
-    error?: string;
-  }> {
-    try {
-      await firstValueFrom(
-        this.httpService.get(`${this.coreServiceUrl}/health`).pipe(
-          timeout(3000), // 3 second timeout
-          catchError((error) => {
-            throw error;
-          }),
-        ),
-      );
-      return { status: 'healthy' };
-    } catch (error: any) {
-      this.logger.error(`Core Service health check failed: ${error.message}`);
-      return {
-        status: 'unhealthy',
-        error: error.message || 'Connection failed',
-      };
-    }
-  }
 }
