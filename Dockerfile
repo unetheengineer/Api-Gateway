@@ -33,6 +33,20 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package.json ./
 
+# Environment variables with defaults (can be overridden at runtime)
+ENV NODE_ENV=production \
+    PORT=3000 \
+    JWT_SECRET=change-this-in-production-use-docker-run-e-or-secrets \
+    JWT_EXPIRES_IN=15m \
+    CORS_ORIGIN=http://localhost:3000 \
+    THROTTLE_ENABLED=true \
+    THROTTLE_TTL=60 \
+    THROTTLE_LIMIT=50 \
+    CACHE_TTL=300 \
+    LOG_LEVEL=log \
+    CIRCUIT_BREAKER_ENABLED=true \
+    METRICS_ENABLED=true
+
 # Create non-root user (security)
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nestjs -u 1001
